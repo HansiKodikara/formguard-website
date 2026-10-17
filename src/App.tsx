@@ -1,7 +1,10 @@
 import { Header } from "./components/Header";
+import { Footer } from "./components/Footer";
 import { Hero } from "./sections/Hero";
 import { Problem } from "./sections/Problem";
 import { HowItWorks } from "./sections/HowItWorks";
+import { TryIt } from "./sections/TryIt";
+import { TestLifter } from "./sections/TestLifter";
 import { useCaps } from "./lib/env";
 
 export function App() {
@@ -12,9 +15,12 @@ export function App() {
       <Header />
       <main id="main">
         <Hero caps={caps} />
-        <Problem caps={caps} />
+        <Problem />
         <HowItWorks caps={caps} />
+        <TryIt />
+        <TestLifter />
       </main>
+      <Footer />
     </>
   );
 }

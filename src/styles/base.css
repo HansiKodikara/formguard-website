@@ -1,14 +1,6 @@
 @import "./tokens.css";
 
-/* ── fonts (self-hosted, OFL; renamed subsets — see public/fonts/OFL-*.txt) ───────────── */
-@font-face { font-family: "FG Display"; src: url("/fonts/fg-display.woff2") format("woff2"); font-weight: 600 900; font-stretch: 100% 125%; font-display: swap; }
-@font-face { font-family: "FG Text"; src: url("/fonts/fg-text.woff2") format("woff2"); font-weight: 380 900; font-stretch: 100% 125%; font-display: swap; }
-@font-face { font-family: "FG Mono"; src: url("/fonts/fg-mono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "FG Mono"; src: url("/fonts/fg-mono-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
-@font-face { font-family: "FG Mono"; src: url("/fonts/fg-mono-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
-/* metric-matched fallbacks (measured with HarfBuzz) so the swap doesn't reflow the hero */
-@font-face { font-family: "FG Display Fallback"; src: local("Arial Bold"), local("Arial-BoldMT"), local("Arial"); font-weight: 700 900; size-adjust: 112.8%; ascent-override: 96.6%; descent-override: 28.4%; line-gap-override: 0%; }
-@font-face { font-family: "FG Text Fallback"; src: local("Arial"), local("ArialMT"); size-adjust: 104.9%; ascent-override: 103.9%; descent-override: 30.5%; line-gap-override: 0%; }
+/* Fonts: Archivo (400 600 700 800) and IBM Plex Mono (400 500) from Google Fonts, linked in each page's <head>. */
 
 /* ── layout system ──────────────────────────────────────────────────────────────────── */
 :root {
@@ -22,39 +14,63 @@
 @utility wrap { width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: var(--margin); }
 @utility grid-12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gutter); }
 
-/* ── type roles ─────────────────────────────────────────────────────────────────────── */
-@utility t-display { font-family: var(--font-display); font-weight: 800; font-stretch: 110%; letter-spacing: -0.012em; }
-@utility t-head { font-family: var(--font-display); font-weight: 760; font-stretch: 105%; letter-spacing: -0.008em; }
-@utility t-num { font-family: var(--font-text); font-weight: 860; font-stretch: 125%; letter-spacing: -0.035em; font-variant-numeric: lining-nums; }
-@utility t-mono { font-family: var(--font-mono); font-size: var(--text-mono); line-height: 1.35; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; }
+/* ── type roles (FormGuard-design-system/tokens.css) ─────────────────────────────────── */
+/* Words in sans, numbers in mono. Sentence case everywhere except t-label. */
+@utility t-display { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; }
+@utility t-head { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
+@utility t-title { font-family: var(--font-display); font-size: var(--text-title); line-height: 1.3333; font-weight: 600; }
+@utility t-num { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: lining-nums tabular-nums; }
+@utility t-label { font-family: var(--font-display); font-size: var(--text-label); line-height: 1.3333; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+@utility t-mono { font-family: var(--font-mono); font-size: var(--text-data); line-height: 1.3846; font-weight: 400; font-variant-numeric: tabular-nums; }
+@utility t-reading { font-family: var(--font-mono); font-size: var(--text-reading); line-height: 1.125; font-weight: 500; font-variant-numeric: tabular-nums; }
 
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: auto; }
 body { overflow-x: clip; }
 body {
   margin: 0;
-  background: var(--color-chalk);
-  color: var(--color-iron);
-  font-family: var(--font-text);
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-display);
   font-size: var(--text-body);
-  line-height: 1.55;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
-::selection { background: var(--color-red); color: var(--color-chalk); }
+::selection { background: var(--signal); color: var(--on-signal); }
 
-/* visible, on-brand focus — Plate Red clears 3:1 on both Chalk and Iron */
+/* focus ring: 2px solid ink, offset 2px — at least 15:1 on ground in both themes */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-red);
-  outline-offset: 3px;
-  border-radius: 0;
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 /* ── surfaces & textures ────────────────────────────────────────────────────────────── */
-.surface-iron { background: var(--color-iron); color: var(--color-chalk); }
-.surface-chalk { background: var(--color-chalk); color: var(--color-iron); }
-.surface-bone { background: var(--color-bone); color: var(--color-iron); }
-.surface-red { background: var(--color-red); color: var(--color-chalk); }
+/* Each surface sets the design system's semantic tokens for its theme; components only read those.
+   chalk = light ground · raised = light ground-raised · iron = dark ground · red = a Plate Red band. */
+:root, .surface-chalk, .surface-raised {
+  --ground: var(--color-chalk); --ground-raised: var(--color-chalk-raised);
+  --line: var(--color-chalk-line); --line-strong: var(--color-stone-strong);
+  --ink: var(--color-iron); --ink-muted: var(--color-stone);
+  --signal: var(--color-red); --signal-ink: var(--color-red); --on-signal: var(--color-chalk);
+}
+.surface-raised { --ground: var(--color-chalk-raised); --ground-raised: var(--color-chalk); }
+.surface-iron {
+  --ground: var(--color-iron); --ground-raised: var(--color-iron-raised);
+  --line: var(--color-iron-line); --line-strong: var(--color-ash-strong);
+  --ink: var(--color-chalk); --ink-muted: var(--color-ash);
+  --signal: var(--color-red); --signal-ink: var(--color-red-ink-dark); --on-signal: var(--color-chalk);
+}
+/* on Plate Red everything is Chalk (4.8:1); the logo is the one-colour Chalk version */
+.surface-red {
+  --ground: var(--color-red); --ground-raised: #b0261e;
+  --line: #f2ede440; --line-strong: var(--color-chalk);
+  --ink: var(--color-chalk); --ink-muted: #f2ede4cc;
+  --signal: var(--color-chalk); --signal-ink: var(--color-chalk); --on-signal: var(--color-red);
+}
+.surface-chalk, .surface-raised, .surface-iron, .surface-red { background: var(--ground); color: var(--ink); }
+
+.surface-iron { color-scheme: dark; }
 
 /* grain sits above the background, under content; never intercepts input */
 .grain { position: relative; isolation: isolate; }
@@ -80,29 +96,16 @@ body {
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-/* semantic colours per surface — components read these, so they work on Chalk and on Iron */
-.surface-iron, .surface-chalk, .surface-bone, .surface-red { color: var(--fg); }
-.surface-iron {
-  --fg: var(--color-chalk); --muted: var(--color-stone-4); --rule: var(--color-iron-3); --rule-strong: var(--color-iron-4);
-  --field-bg: var(--color-iron-2); --field-border: var(--color-stone-4);
-  --flag: var(--color-red-on-dark); --flag-mark: var(--color-red); --good: var(--color-go-on-dark);
-  --bg: var(--color-iron);
-}
-.surface-chalk, .surface-bone {
-  --fg: var(--color-iron); --muted: var(--color-stone-6); --rule: var(--color-chalk-3); --rule-strong: #bdb5a6;
-  --field-bg: #f8f5ef; --field-border: var(--color-stone-6);
-  --flag: var(--color-red); --flag-mark: var(--color-red); --good: var(--color-go);
-  --bg: var(--color-chalk);
-}
-.surface-bone { --bg: var(--color-bone); --rule: #d3cabb; --muted: #645f57; }
-.surface-red {
-  --fg: var(--color-chalk); --muted: #f2ede4cc; --rule: #f2ede440; --rule-strong: #f2ede480;
-  --field-bg: #b0261e; --field-border: var(--color-chalk);
-  --flag: var(--color-chalk); --flag-mark: var(--color-chalk); --good: var(--color-chalk);
-  --bg: var(--color-red);
-}
-.surface-bone.grain::before, .surface-chalk.grain::before { background-image: url("/textures/chalk-grain.png"); }
+.surface-raised.grain::before, .surface-chalk.grain::before { background-image: url("/textures/chalk-grain.png"); }
 .surface-red.grain::before { background-image: url("/textures/film-grain.png"); mix-blend-mode: soft-light; opacity: 0.18; }
+
+/* sliders: a hairline track filled in ink up to the value, a round thumb (round is for dots: it's the joint) */
+.fg-range { appearance: none; -webkit-appearance: none; background: transparent; }
+.fg-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--ink) var(--pct), var(--line-strong) var(--pct)); }
+.fg-range::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--ink) var(--pct), var(--line-strong) var(--pct)); }
+.fg-range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 999px; background: var(--ink); border: 3px solid var(--ground); box-shadow: 0 0 0 1px var(--ink); }
+.fg-range::-moz-range-thumb { width: 16px; height: 16px; border-radius: 999px; background: var(--ink); border: 3px solid var(--ground); box-shadow: 0 0 0 1px var(--ink); }
+.fg-range:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 @keyframes fg-wave { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
 @keyframes fg-scroll { 0% { transform: translateY(-100%); } 60%, 100% { transform: translateY(300%); } }

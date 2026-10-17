@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-/** Scroll progress as a measurement scale: minor ticks every 2%, majors every 10%, a red fill and marker. */
+/** Scroll progress as a measurement scale: minor ticks every 2%, majors every 10%, an ink fill. */
 export function ScrollScale() {
   const fill = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -25,7 +25,7 @@ export function ScrollScale() {
           <line key={i} x1={`${i * 2}%`} x2={`${i * 2}%`} y1={i % 5 === 0 ? 0 : 3.5} y2="7" stroke="currentColor" strokeOpacity={i % 5 === 0 ? 0.55 : 0.28} strokeWidth="1" vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
-      <div ref={fill} className="absolute bottom-0 left-0 h-[2px] w-full origin-left bg-red" style={{ transform: "scaleX(0)" }} />
+      <div ref={fill} className="absolute bottom-0 left-0 h-[2px] w-full origin-left bg-[var(--ink)]" style={{ transform: "scaleX(0)" }} />
     </div>
   );
 }
