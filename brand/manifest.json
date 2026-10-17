@@ -1,0 +1,218 @@
+[
+ {
+  "svg": "svg/formguard-lockup-primary.svg",
+  "png": "png/formguard-lockup-primary@1x.png",
+  "w": 320,
+  "h": 41
+ },
+ {
+  "svg": "svg/formguard-lockup-primary.svg",
+  "png": "png/formguard-lockup-primary@2x.png",
+  "w": 640,
+  "h": 82
+ },
+ {
+  "svg": "svg/formguard-lockup-reversed.svg",
+  "png": "png/formguard-lockup-reversed@1x.png",
+  "w": 320,
+  "h": 41
+ },
+ {
+  "svg": "svg/formguard-lockup-reversed.svg",
+  "png": "png/formguard-lockup-reversed@2x.png",
+  "w": 640,
+  "h": 82
+ },
+ {
+  "svg": "svg/formguard-lockup-iron.svg",
+  "png": "png/formguard-lockup-iron@1x.png",
+  "w": 320,
+  "h": 41
+ },
+ {
+  "svg": "svg/formguard-lockup-iron.svg",
+  "png": "png/formguard-lockup-iron@2x.png",
+  "w": 640,
+  "h": 82
+ },
+ {
+  "svg": "svg/formguard-lockup-chalk.svg",
+  "png": "png/formguard-lockup-chalk@1x.png",
+  "w": 320,
+  "h": 41
+ },
+ {
+  "svg": "svg/formguard-lockup-chalk.svg",
+  "png": "png/formguard-lockup-chalk@2x.png",
+  "w": 640,
+  "h": 82
+ },
+ {
+  "svg": "svg/formguard-symbol-primary.svg",
+  "png": "png/formguard-symbol-primary@1x.png",
+  "w": 215,
+  "h": 256
+ },
+ {
+  "svg": "svg/formguard-symbol-primary.svg",
+  "png": "png/formguard-symbol-primary@2x.png",
+  "w": 430,
+  "h": 512
+ },
+ {
+  "svg": "svg/formguard-symbol-reversed.svg",
+  "png": "png/formguard-symbol-reversed@1x.png",
+  "w": 215,
+  "h": 256
+ },
+ {
+  "svg": "svg/formguard-symbol-reversed.svg",
+  "png": "png/formguard-symbol-reversed@2x.png",
+  "w": 430,
+  "h": 512
+ },
+ {
+  "svg": "svg/formguard-symbol-iron.svg",
+  "png": "png/formguard-symbol-iron@1x.png",
+  "w": 215,
+  "h": 256
+ },
+ {
+  "svg": "svg/formguard-symbol-iron.svg",
+  "png": "png/formguard-symbol-iron@2x.png",
+  "w": 430,
+  "h": 512
+ },
+ {
+  "svg": "svg/formguard-symbol-chalk.svg",
+  "png": "png/formguard-symbol-chalk@1x.png",
+  "w": 215,
+  "h": 256
+ },
+ {
+  "svg": "svg/formguard-symbol-chalk.svg",
+  "png": "png/formguard-symbol-chalk@2x.png",
+  "w": 430,
+  "h": 512
+ },
+ {
+  "svg": "svg/formguard-stacked-primary.svg",
+  "png": "png/formguard-stacked-primary@1x.png",
+  "w": 400,
+  "h": 189
+ },
+ {
+  "svg": "svg/formguard-stacked-primary.svg",
+  "png": "png/formguard-stacked-primary@2x.png",
+  "w": 800,
+  "h": 378
+ },
+ {
+  "svg": "svg/formguard-stacked-reversed.svg",
+  "png": "png/formguard-stacked-reversed@1x.png",
+  "w": 400,
+  "h": 189
+ },
+ {
+  "svg": "svg/formguard-stacked-reversed.svg",
+  "png": "png/formguard-stacked-reversed@2x.png",
+  "w": 800,
+  "h": 378
+ },
+ {
+  "svg": "svg/formguard-stacked-iron.svg",
+  "png": "png/formguard-stacked-iron@1x.png",
+  "w": 400,
+  "h": 189
+ },
+ {
+  "svg": "svg/formguard-stacked-iron.svg",
+  "png": "png/formguard-stacked-iron@2x.png",
+  "w": 800,
+  "h": 378
+ },
+ {
+  "svg": "svg/formguard-stacked-chalk.svg",
+  "png": "png/formguard-stacked-chalk@1x.png",
+  "w": 400,
+  "h": 189
+ },
+ {
+  "svg": "svg/formguard-stacked-chalk.svg",
+  "png": "png/formguard-stacked-chalk@2x.png",
+  "w": 800,
+  "h": 378
+ },
+ {
+  "svg": "svg/formguard-symbol-16-primary.svg",
+  "png": "png/formguard-symbol-16-primary.png",
+  "w": 16,
+  "h": 16
+ },
+ {
+  "svg": "svg/formguard-symbol-16-reversed.svg",
+  "png": "png/formguard-symbol-16-reversed.png",
+  "w": 16,
+  "h": 16
+ },
+ {
+  "svg": "svg/formguard-symbol-16-iron.svg",
+  "png": "png/formguard-symbol-16-iron.png",
+  "w": 16,
+  "h": 16
+ },
+ {
+  "svg": "svg/formguard-symbol-16-chalk.svg",
+  "png": "png/formguard-symbol-16-chalk.png",
+  "w": 16,
+  "h": 16
+ },
+ {
+  "svg": "svg/formguard-symbol-32-primary.svg",
+  "png": "png/formguard-symbol-32-primary.png",
+  "w": 32,
+  "h": 32
+ },
+ {
+  "svg": "svg/formguard-symbol-32-reversed.svg",
+  "png": "png/formguard-symbol-32-reversed.png",
+  "w": 32,
+  "h": 32
+ },
+ {
+  "svg": "svg/formguard-symbol-32-iron.svg",
+  "png": "png/formguard-symbol-32-iron.png",
+  "w": 32,
+  "h": 32
+ },
+ {
+  "svg": "svg/formguard-symbol-32-chalk.svg",
+  "png": "png/formguard-symbol-32-chalk.png",
+  "w": 32,
+  "h": 32
+ },
+ {
+  "svg": "favicon/apple-touch-icon.svg",
+  "png": "favicon/apple-touch-icon.png",
+  "w": 180,
+  "h": 180
+ },
+ {
+  "svg": "favicon/icon-512.svg",
+  "png": "favicon/icon-512.png",
+  "w": 512,
+  "h": 512
+ },
+ {
+  "svg": "svg/formguard-symbol-32-primary.svg",
+  "png": "favicon/favicon-32.png",
+  "w": 32,
+  "h": 32
+ },
+ {
+  "svg": "svg/formguard-symbol-16-primary.svg",
+  "png": "favicon/favicon-16.png",
+  "w": 16,
+  "h": 16
+ }
+]
