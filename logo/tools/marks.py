@@ -12,8 +12,8 @@ def probe(path, checks):
     """checks: [(label, p0, p1, expected_runs)] -> [(label, measured, expected, ok)]"""
     out = []
     for label, p0, p1, expect in checks:
-        got = [r[1] for r in fg.runs(path, p0, p1, step=0.01)]
-        ok = len(got) == len(expect) and all(abs(g - e) <= 0.03 for g, e in zip(got, expect))
+        got = [r[1] for r in fg.runs(path, p0, p1)]
+        ok = len(got) == len(expect) and all(abs(g - e) <= 0.01 for g, e in zip(got, expect))
         out.append((label, got, expect, ok))
     return out
 

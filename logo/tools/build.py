@@ -12,6 +12,7 @@ sys.path.insert(0, HERE)
 
 import fg  # noqa: E402
 import wordmark as W  # noqa: E402
+import marks  # noqa: E402
 
 W.FONTS = os.path.join(ROOT, "logo", "fonts")
 
@@ -100,14 +101,14 @@ header.top{{padding:56px 0 40px;border-bottom:2px solid var(--ink)}}
 header.top .kicker{{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}}
 h1{{font:800 56px/1 Hubot;font-stretch:110%;letter-spacing:-.01em;margin:14px 0 18px}}
 h2{{font:800 34px/1.05 Hubot;font-stretch:110%;margin:0 0 6px}}
-h3{{font:700 19px/1.2 Hubot;font-stretch:105%;margin:0}}
+h3{{font:700 19px/1.2 Mona;font-stretch:105%;margin:0}}
 p{{margin:0 0 10px;max-width:72ch}}
 .lede{{font-size:18px;max-width:64ch}}
 .mono{{font:500 12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}}
 .mute{{color:var(--mute)}}
 section{{padding:56px 0 64px;border-bottom:1px solid var(--rule)}}
 .sechead{{display:grid;grid-template-columns:80px 1fr;gap:0 24px;margin-bottom:32px}}
-.secnum{{font:800 34px/1.05 Hubot;font-stretch:110%;color:var(--red)}}
+.secnum{{font:800 34px/1.05 Mona;font-stretch:112%;color:var(--red)}}
 .swatches{{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}}
 .sw{{width:150px;height:64px;padding:10px 12px;display:flex;align-items:flex-end;font:600 11px ui-monospace,Menlo,monospace}}
 /* type */
@@ -125,6 +126,48 @@ section{{padding:56px 0 64px;border-bottom:1px solid var(--rule)}}
 .dark{{background:var(--ink);color:var(--chalk)}}
 .kern-table{{border-collapse:collapse;margin-top:6px}}
 .kern-table td{{padding:2px 10px 2px 0;font:500 12px ui-monospace,Menlo,monospace}}
+/* concepts */
+.concept{{border-top:2px solid var(--ink);padding:26px 0 34px}}
+.chead{{display:flex;align-items:baseline;gap:14px;margin-bottom:16px}}
+.chead .n{{font:800 15px/1 Mona;font-stretch:110%;color:var(--red);min-width:28px}}
+.chead h3{{font-size:22px}}
+.tag{{font:700 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;padding:5px 7px;margin-left:auto;white-space:nowrap}}
+.tag.short{{background:var(--red);color:var(--chalk)}} .tag.lead{{background:var(--ink);color:var(--chalk)}}
+.tag.rej{{border:1px solid var(--rule);color:var(--mute)}} .tag.dev{{border:1px solid var(--ink)}}
+.cgrid{{display:grid;grid-template-columns:repeat(2,minmax(0,190px)) 190px minmax(0,1fr);gap:14px;align-items:start}}
+.big{{aspect-ratio:1;display:grid;place-items:center;padding:22px}}
+.big svg{{width:100%;height:auto}}
+.on-chalk{{background:var(--chalk);outline:1px solid var(--rule);outline-offset:-1px}} .on-iron{{background:var(--ink)}}
+.px{{display:flex;flex-direction:column;gap:8px}}
+.px .r{{display:flex;align-items:center;gap:14px;padding:10px 12px;min-height:84px}}
+.px canvas{{image-rendering:pixelated;image-rendering:crisp-edges;display:block}}
+.px .lbl{{font:500 10px ui-monospace,Menlo,monospace;color:var(--mute);margin-top:4px;text-align:center}}
+.px .on-iron .lbl{{color:#F2EDE499}}
+.crit{{font-size:13.5px;line-height:1.5}}
+.crit dt{{font:700 10.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--mute);margin-top:9px}}
+.crit dt:first-child{{margin-top:0}}
+.crit dd{{margin:3px 0 0}}
+.ai-high{{color:var(--red);font-weight:700}} .ai-med{{font-weight:700}} .ai-low{{font-weight:700}}
+.lockrow{{display:grid;grid-template-columns:minmax(0,394px) 190px minmax(0,1fr);gap:14px;margin-top:14px;align-items:stretch}}
+.lock{{display:flex;align-items:center;justify-content:center;padding:26px 22px;min-height:110px}}
+.lock svg{{max-width:100%;height:auto}}
+.two{{display:flex;gap:8px;align-items:center;justify-content:center;padding:12px}}
+.two div{{padding:10px;flex:1;display:grid;place-items:center}}
+.two svg{{width:100%;max-width:64px;height:auto}}
+.checks{{font:500 11px/1.55 ui-monospace,Menlo,monospace;color:var(--mute)}}
+.checks b{{color:#2E7D4F}} .checks b.x{{color:var(--red)}}
+.sk{{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}}
+.sk figure{{margin:0;width:118px}}
+.sk figure div{{aspect-ratio:1;padding:14px}}
+.sk figcaption{{font:500 10.5px/1.3 ui-monospace,Menlo,monospace;color:var(--mute);margin-top:5px}}
+.score{{width:100%;border-collapse:collapse;font-size:13.5px}}
+.score th,.score td{{padding:9px 10px;border-bottom:1px solid var(--rule);text-align:center}}
+.score th{{font:700 10.5px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}}
+.score td:first-child,.score th:first-child{{text-align:left}}
+.score td.m{{width:44px;padding:4px}}
+.score svg{{width:30px;height:30px;display:block}}
+.dot{{font-size:16px}}
+@media (max-width:1100px){{.cgrid{{grid-template-columns:repeat(3,minmax(0,1fr))}}.crit{{grid-column:1/-1}}.lockrow{{grid-template-columns:1fr}}}}
 @media (max-width:820px){{.tf,.sechead{{grid-template-columns:1fr}}.trials{{grid-template-columns:1fr}}}}
 """
 
@@ -347,10 +390,206 @@ GUARD and has nothing to do with form or guarding. <b>Rejected.</b></p></div>"""
     return "".join(out)
 
 
+# ════════════════════════════════════════════════════════ 02 concepts
+
+def mark_layers(m, one_colour=True, fill=INK, accent=RED):
+    if one_colour:
+        one = fg.union(m["ink"], m["accent"]) if m["accent"] is not None else m["ink"]
+        return [(one, fill)]
+    return [(m["ink"], fill), (m["accent"], accent)]
+
+
+def square_box(path, pad_ratio=0.06):
+    x0, y0, x1, y1 = path.bounds
+    s = max(x1 - x0, y1 - y0)
+    p = s * pad_ratio
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    return (cx - s / 2 - p, cy - s / 2 - p, cx + s / 2 + p, cy + s / 2 + p)
+
+
+def raster(m, px, fill, css_px=None, pad=0.04):
+    """A <canvas> that the page rasterises at exactly px×px (true favicon pixels)."""
+    layers = mark_layers(m, True, fill)
+    box = square_box(layers[0][0], pad)
+    svg = svg_paths(layers, box, height=px).replace('role="img" ', '')
+    css = css_px or px
+    return (f'<canvas data-px="{px}" data-svg="{html.escape(svg, quote=True)}" '
+            f'style="width:{css}px;height:{css}px" aria-label="{px}px raster"></canvas>')
+
+
+def lockup(m, fill=INK, cap=100, ratio=1.35, gap=0.5, word_key="hubot"):
+    """Mark (scaled to ratio×cap, centred on the cap height) + FORMGUARD."""
+    layers = mark_layers(m, True, fill)
+    mk = layers[0][0]
+    x0, y0, x1, y1 = mk.bounds
+    h = ratio * cap
+    k = h / (y1 - y0)
+    mk = fg.xform(mk, k, 0, 0, k, -x0 * k, -cap / 2 - h / 2 - y0 * k)
+    word, _ = set_word(word_key, "FORMGUARD", cap)
+    wx0 = word.bounds[0]
+    word = fg.translate(word, (x1 - x0) * k + gap * cap - wx0, 0)
+    both = fg.union(mk, word)
+    b = both.bounds
+    p = cap * 0.12
+    return svg_paths([(both, fill)], (b[0] - p, b[1] - p, b[2] + p, b[3] + p), height=None, width=360)
+
+
+CRIT = {
+    "bar-path": dict(
+        idea="The side-on trace of the barbell's end through a rep, drifting once. Literally what FormGuard checks.",
+        works="The truest idea here, and lifters know bar-path overlays from their own videos.",
+        fails="As a picture it's a balloon on a string, and at 16px a map pin. The drift, which is the actual point, is the first thing to disappear. Disc and line make a stock pictogram with no tie to the name.",
+        ai=("med", "Medium. A stock pictogram."),
+        verdict=("dev", "Keep as a device"), note="Rejected as a mark. Keep it as a brand device: real bar-path traces animating on the website."),
+    "parallel": dict(
+        idea="The knee at parallel, the standard of a full squat, with its angle measured.",
+        works="Precise, calm and instrument-like. Reads as a right angle at any size, and the arc is the measurement, so it earns the red.",
+        fails="Close to generic geometry. Designers will see Figma's corner-radius icon. A knee node turns it into plumbing, and the solid sweep looks like a Bauhaus generator.",
+        ai=("med", "Medium. It could be a geometry-app icon unless the proportions are made unmistakably ours."),
+        verdict=("short", "Shortlist"), note="The precise route."),
+    "sensor": dict(
+        idea="F and G drawn as joints and links, like a skeleton.",
+        works="It says 'sensors'.",
+        fails="Eleven nodes. It reads as a circuit board, a molecule or a neural network, and at 16px it's noise.",
+        ai=("high", "High. This is exactly what a logo generator makes for 'AI fitness'."),
+        verdict=("rej", "Rejected"), note=""),
+    "rom": dict(
+        idea="A joint's sweep, with a rep stopped short of its mark.",
+        works="Tells the partial-rep story.",
+        fails="It's a speedometer, with four elements. The short-rep detail vanishes small, and it says 'dashboard', not lifting.",
+        ai=("high", "High. A stock dashboard icon."),
+        verdict=("rej", "Rejected"), note=""),
+    "rails": dict(
+        idea="The movement kept between guide rails.",
+        works="Simple, and it survives 16px.",
+        fails="It reads as a media control (pause, record) and says nothing about lifting or the name.",
+        ai=("med", "Medium. Anonymous UI glyph."),
+        verdict=("rej", "Rejected"), note=""),
+    "cradle": dict(
+        idea="The bar held in a J-hook, or a spotter's hands, never touching it. Guarding without a shield.",
+        works="The boldest shape here. Perfect at 16px, one-colour safe, calm and confident.",
+        fails="Generic. A U holding a ball could be a magnet, a cup or any brand, and it doesn't connect to the name. The J-hook profile variant reads as a 'b'.",
+        ai=("med", "Medium. Clean but anonymous."),
+        verdict=("short", "Shortlist"), note="The robust route."),
+    "rack-f": dict(
+        idea="The F is a power rack seen side-on: upright, J-hook above, safety arm below, with the bar held between them. The counter is carved into a socket, so the bar sits like a ball joint. One shape, three readings: F, rack, joint.",
+        works="Ownable and specific to lifting. It's built from the letter that starts the name, so mark and wordmark share a source. Every lifter gets the rack, and everyone gets the F.",
+        fails="The socket bite is subtle and closes below 32px, so it needs a drawn small-size version. With the ball smaller or nearer the stem it reads as an eye, and the plain F-plus-dot variants are generic.",
+        ai=("low", "Low. A specific idea with real anatomy behind it."),
+        verdict=("lead", "Shortlist · lead"), note="The ownable route."),
+    "plate": dict(
+        idea="A calibrated plate as the mark, or as the O.",
+        works="Instantly 'gym'.",
+        fails="It's a target, a record or a donut: the most expected gym-logo trope. The hub groove vanishes below 32px.",
+        ai=("high", "High. A template gym logo."),
+        verdict=("rej", "Rejected"), note=""),
+    "buzz": dict(
+        idea="A joint node and the haptic pulse that flags it.",
+        works="It's the product's signature moment.",
+        fails="It's the universal 'live/broadcast' icon, and a red dot with rings recalls Target.",
+        ai=("high", "High."),
+        verdict=("dev", "Keep as motion"), note="Rejected as a mark. Keep the pulse as UI motion."),
+    "pivot-g": dict(
+        idea="The G's bar as a limb on a pivot, with the range of motion around it.",
+        works="A neat synthesis of joint, range and letter.",
+        fails="It is Google's G with a dot.",
+        ai=("high", "High. Derivative."),
+        verdict=("rej", "Rejected"), note=""),
+    "lights": dict(
+        idea="The referee's three lights; FormGuard as the honest judge in your ear.",
+        works="Deep lifting culture and an ownable meaning (three white lights).",
+        fails="As a shape it's an ellipsis (⋯) or carousel dots, with zero distinctiveness. In one colour the verdict is lost.",
+        ai=("med", "Medium."),
+        verdict=("dev", "Keep as a device"), note="Rejected as a mark. Keep it as a product device: three-light rep verdicts."),
+    "stack": dict(
+        idea="Form slipping when tired: four plates aligned, the last one off.",
+        works="Fatigue drift is a real, specific insight.",
+        fails="It's a hamburger menu with a glitch, and glitch offsets are a tech trope.",
+        ai=("high", "High."),
+        verdict=("rej", "Rejected"), note=""),
+}
+
+SCORE = {  # one idea, memorable, 16px, one colour, ownable, not AI-looking   (2 yes · 1 partly · 0 no)
+    "bar-path": (2, 1, 0, 2, 1, 1), "parallel": (2, 2, 2, 2, 1, 1), "sensor": (1, 0, 0, 2, 0, 0),
+    "rom": (1, 0, 0, 1, 0, 0), "rails": (1, 1, 2, 2, 0, 1), "cradle": (2, 2, 2, 2, 1, 1),
+    "rack-f": (2, 2, 1, 2, 2, 2), "plate": (2, 2, 1, 2, 0, 0), "buzz": (2, 2, 2, 2, 0, 0),
+    "pivot-g": (2, 2, 2, 2, 0, 0), "lights": (2, 2, 2, 1, 0, 1), "stack": (2, 1, 1, 2, 0, 0),
+}
+
+
+def concept_card(i, key, name, m):
+    c = CRIT[key]
+    box = (0, 0, 120, 120)
+    big_c = svg_paths(mark_layers(m, True, INK), box)
+    big_i = svg_paths(mark_layers(m, True, CHALK), box)
+    two_c = svg_paths(mark_layers(m, False, INK, RED), box)
+    two_i = svg_paths(mark_layers(m, False, CHALK, RED), box)
+    px = f"""<div class="px">
+  <div class="r on-chalk"><div>{raster(m, 32, INK)}<div class="lbl">32</div></div><div>{raster(m, 16, INK)}<div class="lbl">16</div></div><div>{raster(m, 16, INK, 64)}<div class="lbl">16 ×4</div></div></div>
+  <div class="r on-iron"><div>{raster(m, 32, CHALK)}<div class="lbl">32</div></div><div>{raster(m, 16, CHALK)}<div class="lbl">16</div></div><div>{raster(m, 16, CHALK, 64)}<div class="lbl">16 ×4</div></div></div>
+</div>"""
+    ai_cls = {"high": "ai-high", "med": "ai-med", "low": "ai-low"}[c["ai"][0]]
+    note = f"<dt>Verdict</dt><dd>{c['note']}</dd>" if c["note"] else ""
+    crit = f"""<dl class="crit"><dt>Idea</dt><dd>{c['idea']}</dd><dt>Works</dt><dd>{c['works']}</dd>
+<dt>Fails</dt><dd>{c['fails']}</dd><dt>Would a designer guess AI?</dt><dd class="{ai_cls}">{c['ai'][1]}</dd>{note}</dl>"""
+    checks = "".join(
+        f"<div><b class='{'' if ok else 'x'}'>{'✓' if ok else '✗'}</b> {html.escape(label)}: "
+        f"{', '.join(f'{v:.3f}' for v in got) if got else 'clear (no ink)'}</div>"
+        for label, got, expect, ok in m["checks"])
+    sk = ""
+    if key in marks.SKETCHES:
+        figs = []
+        for cap_, fn in marks.SKETCHES[key]:
+            sm = fn()
+            figs.append(f'<figure><div class="on-chalk">{svg_paths(mark_layers(sm, False, INK, RED), box)}</div>'
+                        f'<figcaption>{html.escape(cap_)}</figcaption></figure>')
+        sk = f'<div class="sk">{"".join(figs)}</div>'
+    vcls, vlabel = c["verdict"]
+    return f"""<article class="concept" id="c-{key}">
+<div class="chead"><span class="n">{i:02d}</span><h3>{name}</h3><span class="tag {vcls}">{vlabel}</span></div>
+<div class="cgrid"><div class="big on-chalk">{big_c}</div><div class="big on-iron">{big_i}</div>{px}{crit}</div>
+<div class="lockrow"><div class="lock on-chalk">{lockup(m)}</div>
+<div class="two on-chalk"><div class="on-chalk">{two_c}</div><div class="on-iron">{two_i}</div></div>
+<div class="checks">{checks}</div></div>{sk}
+</article>"""
+
+
+def section_concepts():
+    cards = [concept_card(i, k, n, fn()) for i, (k, n, fn) in enumerate(marks.CONCEPTS, 1)]
+    return f"""<section id="marks">{sechead("02", "Mark concepts",
+        "<p>Twelve concepts: the seven directions in the brief plus five of my own. Each is exact geometry on a 120-unit grid, "
+        "shown in one colour on Chalk and on Iron Black. The 32px and 16px tiles are <b>real rasters</b>: each mark is drawn into a 32×32 "
+        "or 16×16 canvas, so you see the pixels a favicon actually gets (the ×4 tile magnifies the 16px one). Below each: the lockup with "
+        "the Hubot wordmark, the two-colour version, the stroke weights and gaps measured on the final outline, and the variants I tried and dropped.</p>")}
+{"".join(cards)}
+</section>"""
+
+
+def section_scorecard():
+    cols = ["One idea", "Memorable", "16px", "One colour", "Ownable", "Not AI-looking"]
+    sym = {2: "●", 1: "◐", 0: "○"}
+    rows = []
+    for i, (k, n, fn) in enumerate(marks.CONCEPTS, 1):
+        m = fn()
+        sc = SCORE[k]
+        thumb = svg_paths(mark_layers(m, True, INK), (0, 0, 120, 120))
+        vcls, vlabel = CRIT[k]["verdict"]
+        rows.append(f"<tr><td><b>{i:02d}</b>&nbsp; {n}</td><td class='m'>{thumb}</td>" +
+                    "".join(f"<td class='dot'>{sym[v]}</td>" for v in sc) +
+                    f"<td><b>{sum(sc)}</b>/12</td><td><span class='tag {vcls}'>{vlabel}</span></td></tr>")
+    head = "<tr><th>Concept</th><th></th>" + "".join(f"<th>{c}</th>" for c in cols) + "<th>Total</th><th>Verdict</th></tr>"
+    return f"""<section id="score">{sechead("03", "Critique, side by side",
+        "<p>Each concept scored against the brief's two lists (● yes, ◐ partly, ○ no). Three earn refinement: the <b>Rack F</b> "
+        "(ownable), the <b>Parallel</b> angle (precise) and the <b>Cradle</b> (robust). Three ideas are too good to waste and too generic "
+        "to be the logo, so they become devices: bar-path traces, the haptic pulse and three-light verdicts.</p>")}
+<div style="overflow-x:auto"><table class="score">{head}{''.join(rows)}</table></div>
+</section>"""
+
+
 # ════════════════════════════════════════════════════════ main
 
 def main():
-    sections = [section_typefaces()]
+    sections = [section_typefaces(), section_concepts(), section_scorecard()]
     out = os.path.join(ROOT, "logo-explorations.html")
     with open(out, "w") as f:
         f.write(page(sections))

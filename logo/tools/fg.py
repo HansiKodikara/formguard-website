@@ -209,27 +209,42 @@ def bounds(p):
 
 # ---------------------------------------------------------------- measuring
 
-def runs(p, p0, p1, step=0.01):
-    """Filled runs along the segment p0->p1, as list of (start_t_len, length).
+def runs(p, p0, p1, step=0.1, tol=1e-5):
+    """Filled runs along the segment p0->p1, as [(start, length)] in output units.
 
-    Used to verify stroke weights on the *final* outline, not the intent.
+    Samples every `step`, then bisects each in/out transition to `tol`, so a 20-unit
+    stroke measures 20.000, not 20.01. Used to verify stroke weights on the *final* outline.
     """
     (x0, y0), (x1, y1) = p0, p1
     L = math.hypot(x1 - x0, y1 - y0)
-    n = int(L / step)
-    out, inside, start = [], False, 0.0
-    for i in range(n + 1):
-        t = i * step
-        x, y = x0 + (x1 - x0) * t / L, y0 + (y1 - y0) * t / L
-        c = p.contains((x, y))
-        if c and not inside:
-            inside, start = True, t
-        elif not c and inside:
-            inside = False
-            out.append((round(start, 2), round(t - start, 2)))
-    if inside:
-        out.append((round(start, 2), round(L - start, 2)))
-    return out
+    ux, uy = (x1 - x0) / L, (y1 - y0) / L
+
+    def inside(t):
+        return p.contains((x0 + ux * t, y0 + uy * t))
+
+    n = max(1, int(math.ceil(L / step)))
+    edges = []
+    prev = inside(0.0)
+    if prev:
+        edges.append(0.0)
+    a = 0.0
+    for i in range(1, n + 1):
+        b = min(L, i * step)
+        cur = inside(b)
+        if cur != prev:
+            lo, hi = a, b
+            while hi - lo > tol:
+                mid = (lo + hi) / 2
+                if inside(mid) == prev:
+                    lo = mid
+                else:
+                    hi = mid
+            edges.append((lo + hi) / 2)
+            prev = cur
+        a = b
+    if prev:
+        edges.append(L)
+    return [(round(edges[i], 4), round(edges[i + 1] - edges[i], 4)) for i in range(0, len(edges) - 1, 2)]
 
 
 # ---------------------------------------------------------------- type
