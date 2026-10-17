@@ -14,6 +14,7 @@ import { NODES, bodyResource } from "../body";
 import type { Joint } from "../rig";
 import type { SceneProps } from "../../components/Stage";
 import { gymTextures, studioEnv } from "../textures";
+import { PLATFORM_TOP } from "../props";
 
 /** Everything the scene draws, fetched before it mounts, so nothing pops in after the fade. */
 export function preload() {
@@ -95,7 +96,7 @@ export default function BenchScene({ active, gap = 24, onSlip }: SceneProps & { 
     <Canvas frameloop={active ? "always" : "never"} shadows dpr={[1, 1.6]} gl={{ antialias: true, alpha: true }}>
       <Daylight sun={[-2.4, 5.2, 2.8]} />
       <Bench />
-      <Suspense fallback={null}><Lifter tone="lab" script={script} /></Suspense>
+      <Suspense fallback={null}><Lifter tone="lab" script={script} floor={PLATFORM_TOP} /></Suspense>
       <DualRender frame={frame} gap={gap} />
     </Canvas>
   );

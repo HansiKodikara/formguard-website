@@ -85,8 +85,8 @@ function HowPinned({ caps }: { caps: Caps }) {
           <AppScreen visible={st.step === 4} />
         </div>
 
-        <div className="wrap relative grid-12 h-full">
-          <div className="col-span-4 flex h-full flex-col pb-14 pt-[calc(var(--header-h)+3.5rem)]">
+        <div className="wrap pointer-events-none relative grid-12 h-full">
+          <div className="pointer-events-auto col-span-4 flex h-full flex-col pb-14 pt-[calc(var(--header-h)+3.5rem)]">
             <Kicker index="02">How it works</Kicker>
             <h2 className="t-head mt-6 text-[clamp(2.25rem,3.4vw,3.75rem)] leading-[0.98]">It learns you, then checks every rep.</h2>
             <ol className="mt-10 border-l border-[var(--line-strong)]">

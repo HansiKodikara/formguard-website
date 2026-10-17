@@ -6,6 +6,8 @@ import { braceBreath, breath, benchPress, curlFlex, idle, repAt, repDepth, squat
 import { CameraRig, Lifter, type Script } from "../three/Lifter";
 import { Bench, Gym, Lab } from "../three/World";
 import { NODES, type Variant } from "../three/body";
+import { PLATFORM_TOP } from "../three/props";
+import { Turntable } from "../three/Turntable";
 
 const CAMS: Record<string, { pos: [number, number, number]; target: [number, number, number]; fov: number }> = {
   front34: { pos: [2.3, 1.35, 4.3], target: [0, 0.92, 0], fov: 28 },
@@ -79,11 +81,11 @@ export function FigureLab() {
   return (
     <div style={{ position: "fixed", inset: 0, background: env === "gym" ? "#1b1a17" : "#f2ede4" }}>
       <Canvas shadows dpr={[1, 1.75]} gl={{ antialias: true, alpha: true }} camera={{ fov: cam.fov, near: 0.1, far: 60, position: cam.pos }}>
-        <Suspense fallback={null}>
+        <Suspense fallback={null}><Turntable returnAfter={Infinity}>
           {env === "gym" ? <Gym showRack={lift !== "bench"} /> : <Lab platformOn={q.get("platform") === "1"} />}
           {lift === "bench" && <Bench light={env !== "gym"} />}
-          <Lifter variant={variant} tone={env === "gym" ? "gym" : "lab"} script={script} bar={lift === "curl" ? "curl" : "olympic"} frozenT={frozen} />
-        </Suspense>
+          <Lifter variant={variant} tone={env === "gym" ? "gym" : "lab"} script={script} bar={lift === "curl" ? "curl" : "olympic"} floor={env === "gym" || q.get("platform") === "1" ? PLATFORM_TOP : 0} frozenT={frozen} />
+        </Turntable></Suspense>
         <CameraRig pos={cam.pos} target={cam.target} fov={cam.fov} />
       </Canvas>
       <p className="t-mono" style={{ position: "fixed", left: 16, bottom: 12, color: env === "gym" ? "#9a948a" : "#6b665e" }}>

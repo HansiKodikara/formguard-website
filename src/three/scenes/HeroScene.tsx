@@ -9,6 +9,8 @@ import { braceBreath, breath, idle, repAt, repDepth, squatDepth } from "../lifts
 import { NODES, bodyResource } from "../body";
 import type { SceneProps } from "../../components/Stage";
 import { gymTextures, studioEnv } from "../textures";
+import { PLATFORM_TOP } from "../props";
+import { Turntable } from "../Turntable";
 
 /** Everything the scene draws, fetched before it mounts, so nothing pops in after the fade. */
 export function preload() {
@@ -58,8 +60,10 @@ export default function HeroScene({ active, onHud, frozenT }: SceneProps & { onH
   return (
     <Canvas frameloop={active ? "always" : "never"} shadows dpr={[1, 1.6]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       camera={{ fov: 25, position: [4.7, 1.5, 3.25], near: 0.1, far: 40 }}>
-      <Daylight showRack rackX={-0.6} rackZ={-1.7} />
-      <Suspense fallback={null}><Lifter tone="lab" script={script} frozenT={frozenT} /></Suspense>
+      <Turntable>
+        <Daylight showRack rackX={-0.6} rackZ={-1.7} />
+        <Suspense fallback={null}><Lifter tone="lab" script={script} floor={PLATFORM_TOP} frozenT={frozenT} /></Suspense>
+      </Turntable>
       <CameraRig pos={[4.7, 1.5, 3.25]} target={[0, 0.92, 0]} fov={25} />
       <FrameOffset x={0.24} y={-0.02} perAspect={0.2} />
     </Canvas>

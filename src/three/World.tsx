@@ -107,8 +107,12 @@ export function Daylight({ platformOn = true, showRack = false, rackedBar = fals
     key.shadow.bias = -0.0003;
     key.shadow.normalBias = 0.025;
     const sky = new THREE.HemisphereLight("#f3f6fa", "#d9cfbf", 0.35);
-    const rim = new THREE.DirectionalLight("#ffffff", 0.9);
-    rim.position.set(2.6, 3.2, -3.6);
+    // two rims from behind pick the dark suit out of the bright room with a bright edge, and backlight
+    // the ears and fingers so the light shows through them (skinMaterial)
+    const rim = new THREE.DirectionalLight("#fff4e6", 2.6);
+    rim.position.set(2.8, 3.0, -3.8);
+    const rim2 = new THREE.DirectionalLight("#e9f0f7", 1.5);
+    rim2.position.set(-3.4, 2.2, -3.0);
     const catcher = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ color: "#3a3127", opacity: 0.2 }));
     catcher.rotation.x = -Math.PI / 2;
     catcher.receiveShadow = true;
@@ -116,7 +120,7 @@ export function Daylight({ platformOn = true, showRack = false, rackedBar = fals
     const rk = rack(true); rk.position.set(rackX, 0, rackZ);
     const racked = barbell(gym, "olympic");
     racked.set(new THREE.Vector3(rackX + 1.1, 1.47, rackZ + 0.08), new THREE.Vector3(rackX - 1.1, 1.47, rackZ + 0.08));
-    return { key, sky, rim, catcher, plat, rk, racked };
+    return { key, sky, rim, rim2, catcher, plat, rk, racked };
   }, [gym, rackX, rackZ, sun]);
   useEffect(() => {
     gl.toneMapping = THREE.NeutralToneMapping;
@@ -135,6 +139,7 @@ export function Daylight({ platformOn = true, showRack = false, rackedBar = fals
       <primitive object={parts.key} />
       <primitive object={parts.sky} />
       <primitive object={parts.rim} />
+      <primitive object={parts.rim2} />
       <primitive object={parts.catcher} />
       {platformOn && <primitive object={parts.plat} />}
       {showRack && <primitive object={parts.rk} />}

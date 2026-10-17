@@ -18,7 +18,8 @@ export function Hero({ caps }: { caps: Caps }) {
   return (
     <Section id="top" surface="chalk" label="Introduction" className="overflow-hidden [--hero-foot:5.5rem]">
       <Stage load={loadHero} props={{ onHud }} live={caps.live3D} still="/stills/hero.webp" alt="A lifter in the FormGuard sensor suit squats on a lifting platform in daylight. Sensor nodes glow at every joint and a skeleton overlay tracks the movement." className="absolute inset-x-0 top-0 bottom-[var(--hero-foot)]" />
-      <div className="wrap relative grid-12 min-h-[100svh] content-between gap-y-12 pb-10 pt-[calc(var(--header-h)+clamp(2.5rem,9vh,7rem))] lg:pb-12">
+      {/* drags pass through the text to the 3D stage behind it (Turntable); links and buttons still take clicks */}
+      <div className="wrap pointer-events-none relative grid-12 min-h-[100svh] content-between gap-y-12 pb-10 pt-[calc(var(--header-h)+clamp(2.5rem,9vh,7rem))] lg:pb-12 [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
         <div className="col-span-12 lg:col-span-8 2xl:col-span-9">
           <p className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
             <span aria-hidden className="h-px w-6 bg-[var(--ink)]" />In development · test lifters wanted
@@ -40,6 +41,7 @@ export function Hero({ caps }: { caps: Caps }) {
               <span className="absolute inset-x-0 top-0 h-3 bg-[var(--ink)] motion-safe:animate-[fg-scroll_2.4s_var(--ease-lift)_infinite]" />
             </span>
             Scroll
+            {caps.live3D && <span className="ml-4 hidden border-l border-[var(--line)] pl-4 lg:inline">Drag to turn</span>}
           </div>
           <div className="col-span-8 flex flex-col items-end gap-3 lg:col-span-6 lg:flex-row lg:items-center lg:justify-end lg:gap-6">
             <Readout status={shown === total ? "live" : "neutral"} className="tabular-nums">

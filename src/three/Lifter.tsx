@@ -17,9 +17,32 @@ export type Frame = {
 };
 export type Script = (f: Frame) => void;
 
-export function Lifter({ variant = "lifter", tone = "gym", script, bar = "olympic", position = [0, 0, 0], frozenT, onFrame }: {
+/** A soft dark ellipse for under a foot: where the shoe meets the floor, light can't reach. */
+let _contact: THREE.Texture | null = null;
+function contactTexture() {
+  if (_contact) return _contact;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d")!;
+  const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grd.addColorStop(0, "rgba(0,0,0,1)");
+  grd.addColorStop(0.45, "rgba(0,0,0,0.75)");
+  grd.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 128, 128);
+  _contact = new THREE.CanvasTexture(c);
+  return _contact;
+}
+function footShadows() {
+  const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ map: contactTexture(), color: "#2b2219", transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  return [new THREE.Mesh(geo, mat), new THREE.Mesh(geo, mat)];
+}
+
+export function Lifter({ variant = "lifter", tone = "gym", script, bar = "olympic", position = [0, 0, 0], floor = 0, frozenT, onFrame }: {
   variant?: Variant; tone?: "gym" | "lab"; script: Script; bar?: "olympic" | "curl";
-  position?: [number, number, number]; frozenT?: number; onFrame?: (f: Frame) => void;
+  /** the floor's height under the feet (the platform's top), for the contact shadows */
+  position?: [number, number, number]; floor?: number; frozenT?: number; onFrame?: (f: Frame) => void;
 }) {
   const data = use(bodyResource(variant));
   const gym = use(gymTextures());
@@ -36,6 +59,7 @@ export function Lifter({ variant = "lifter", tone = "gym", script, bar = "olympi
       ripple: new Ripple(), ghostOpacity: 0, barVisible: true, traceFrom: null,
     };
   }, [data, gym, variant, tone, bar]);
+  const feet = useMemo(footShadows, []);
   const scriptRef = useRef(script);
   scriptRef.current = script;
   useEffect(() => () => { for (const m of [f.fig.mesh.material, f.ghostFig.mesh.material].flat()) (m as THREE.Material).dispose(); }, [f]);
@@ -53,6 +77,14 @@ export function Lifter({ variant = "lifter", tone = "gym", script, bar = "olympi
     f.bar.group.visible = f.barVisible && f.rig.bar.on;
     if (f.bar.group.visible) f.bar.set(f.rig.bar.a, f.rig.bar.b, frozenT !== undefined ? undefined : f.dt);
     if (f.traceFrom) f.trace.push(f.traceFrom === "a" ? f.rig.bar.a : f.rig.bar.b);
+    // contact shadows: under each foot, heel to toe, fading as the heel lifts off the floor
+    (["L", "R"] as const).forEach((s, i) => {
+      const m = feet[i], heel = f.rig.j[`heel${s}`], toe = f.rig.j[`toe${s}`];
+      m.position.set((heel.x + toe.x) / 2, floor + 0.001, (heel.z + toe.z) / 2 + 0.005);
+      m.rotation.y = Math.atan2(toe.x - heel.x, toe.z - heel.z);
+      m.scale.set(0.15, 1, Math.hypot(toe.x - heel.x, toe.z - heel.z) * 1.9);
+      m.visible = heel.y < 0.12;
+    });
     f.skeleton.update(f.rig, camera, size);
     f.trace.update(size);
     f.ripple.update(f.t, camera);
@@ -62,6 +94,8 @@ export function Lifter({ variant = "lifter", tone = "gym", script, bar = "olympi
   return (
     <group position={position}>
       <primitive object={f.fig.group} />
+      <primitive object={feet[0]} />
+      <primitive object={feet[1]} />
       <primitive object={f.ghostFig.group} />
       <primitive object={f.bar.group} />
       <primitive object={f.skeleton.group} />

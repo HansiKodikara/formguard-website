@@ -5,7 +5,7 @@
  */
 import * as THREE from "three";
 import type { Rig } from "./rig";
-import { resource, texture, tiled, type GymTextures, type Resource } from "./textures";
+import { resource, skinDetail, texture, tiled, type GymTextures, type Resource } from "./textures";
 
 // ── data ──────────────────────────────────────────────────────────────────────────────
 
@@ -105,6 +105,7 @@ function geometry(d: BodyData) {
     g.addGroup(grp.start + ball.length, cornea.length, CORNEA);
   }
   g.userData.eyeCentres = lids;
+  g.setAttribute("aThin", new THREE.BufferAttribute(thinness(pos, nrm, verts("skin"), sI, sW, d.meta.bones), 1));
   g.computeBoundingSphere();
   geoCache.set(d.variant, g);
   return g;
@@ -154,6 +155,59 @@ function eyelids(pos: Float32Array, eye: Set<number>, skin: Set<number>, lashes:
     }
   });
   return centres;
+}
+
+/**
+ * How much light shows through the skin at each vertex, 0 … 1, on the ears and fingers: the distance through
+ * to the nearest skin facing the other way. Only those two places, picked by bone (fingers) and position
+ * (beside the head): elsewhere on the face the mouth and eye sockets sit just behind the skin, and measuring
+ * alone would light up the cheeks. A spatial hash keeps it to one pass over ~2 cm neighbourhoods; once per body.
+ */
+function thinness(pos: Float32Array, nrm: Int8Array, skin: Set<number>, sI: Uint16Array, sW: Float32Array, bones: string[]) {
+  const out = new Float32Array(pos.length / 3);
+  const finger = bones.map((b) => b.startsWith("finger"));
+  const head = bones.indexOf("head");
+  const where = (i: number) => {
+    let f = 0, h = 0;
+    for (let k = 0; k < 4; k++) {
+      const b = sI[i * 4 + k], w = sW[i * 4 + k];
+      if (finger[b]) f += w;
+      if (b === head) h += w;
+    }
+    const ear = h > 0.5 && Math.abs(pos[i * 3]) > 0.064 && pos[i * 3 + 2] < 0.06 ? 1 : 0;
+    return Math.max(Math.min(1, f * 1.5), ear);
+  };
+  const C = 0.01, key = (x: number, y: number, z: number) => `${x},${y},${z}`;
+  const cells = new Map<string, number[]>();
+  for (const i of skin) {
+    const k = key(Math.floor(pos[i * 3] / C), Math.floor(pos[i * 3 + 1] / C), Math.floor(pos[i * 3 + 2] / C));
+    let c = cells.get(k);
+    if (!c) cells.set(k, (c = []));
+    c.push(i);
+  }
+  for (const i of skin) {
+    const mask = where(i);
+    if (mask === 0) continue;
+    const px = pos[i * 3], py = pos[i * 3 + 1], pz = pos[i * 3 + 2];
+    const nx = nrm[i * 3] / 127, ny = nrm[i * 3 + 1] / 127, nz = nrm[i * 3 + 2] / 127;
+    const cx = Math.floor(px / C), cy = Math.floor(py / C), cz = Math.floor(pz / C);
+    let best = 0.02;
+    for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (let c = -2; c <= 2; c++) {
+      const list = cells.get(key(cx + a, cy + b, cz + c));
+      if (!list) continue;
+      for (const j of list) {
+        const dx = pos[j * 3] - px, dy = pos[j * 3 + 1] - py, dz = pos[j * 3 + 2] - pz;
+        // behind this vertex, facing away from it
+        if (dx * nx + dy * ny + dz * nz > -0.001) continue;
+        if (nrm[j * 3] * nx + nrm[j * 3 + 1] * ny + nrm[j * 3 + 2] * nz > -0.4 * 127) continue;
+        const d = Math.hypot(dx, dy, dz);
+        if (d < best) best = d;
+      }
+    }
+    const t = Math.min(1, Math.max(0, (best - 0.004) / 0.014));
+    out[i] = mask * (1 - t * t * (3 - 2 * t));
+  }
+  return out;
 }
 
 // ── retargeting ───────────────────────────────────────────────────────────────────────
@@ -453,6 +507,10 @@ export class Body {
 
 // ── materials ─────────────────────────────────────────────────────────────────────────
 
+/** Skin tone per lifter, multiplied over the MakeHuman skin texture: the main lifter's pale texture warmed
+ *  to a light tan. */
+const SKIN_TINT: Record<Variant, string> = { lifter: "#dccfc2", long: "#ffffff", short: "#ffffff" };
+
 /** Hair colour per lifter, multiplied over the MakeHuman hair texture. */
 const HAIR_TINT: Record<Variant, string> = { lifter: "#2f2622", long: "#a58566", short: "#3d2c24" };
 
@@ -482,12 +540,42 @@ export function suitMaterial(gym: GymTextures, tone: "gym" | "lab" = "lab") {
   return m;
 }
 
-/** Bare head, neck and hands: the MakeHuman skin texture, with a soft warm sheen at grazing angles. */
-export function skinMaterial(tex: BodyTextures) {
-  return new THREE.MeshPhysicalMaterial({
-    map: tex.skin?.map, roughness: 0.5, metalness: 0, specularIntensity: 0.55,
-    sheen: 0.3, sheenRoughness: 0.5, sheenColor: new THREE.Color("#ffb59c"),
+/**
+ * Bare head, neck and hands: the MakeHuman skin texture, with
+ *  - pores and fine grain (a tiling micro-normal) and shine that varies across the skin (a roughness field);
+ *  - light that scatters under the skin: a warm glow that wraps past the shadow line, and light shining
+ *    through the thin parts (ears, fingers, nostrils, lids; see thinness()) when they're lit from behind.
+ */
+export function skinMaterial(tex: BodyTextures, variant: Variant = "lifter") {
+  const detail = skinDetail();
+  detail.normal.repeat.set(28, 28);
+  detail.rough.repeat.set(5, 5);
+  const m = new THREE.MeshPhysicalMaterial({
+    map: tex.skin?.map, color: SKIN_TINT[variant], normalMap: detail.normal, normalScale: new THREE.Vector2(0.32, 0.32),
+    roughnessMap: detail.rough, roughness: 1, metalness: 0, specularIntensity: 0.6,
+    sheen: 0.2, sheenRoughness: 0.5, sheenColor: new THREE.Color("#f3c8b4"),
   });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uScatter = { value: new THREE.Color("#ff8f73") };
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nattribute float aThin;\nvarying float vThin;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvThin = aThin;");
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nuniform vec3 uScatter;\nvarying float vThin;")
+      .replace("#include <lights_physical_pars_fragment>", THREE.ShaderChunk.lights_physical_pars_fragment.replace(
+        "vec3 irradiance = dotNL * directLight.color;",
+        `vec3 irradiance = dotNL * directLight.color;
+        {
+          // wrap: scattered light reaches a little past the terminator, reddened by the blood beneath
+          float wrapNL = saturate( ( dot( geometryNormal, directLight.direction ) + 0.4 ) / 1.4 );
+          reflectedLight.directDiffuse += max( wrapNL - dotNL, 0.0 ) * directLight.color * uScatter * BRDF_Lambert( material.diffuseColor ) * 0.35;
+          // transmission: thin parts glow when the light is behind them
+          vec3 h = normalize( -directLight.direction + geometryNormal * 0.3 );
+          float through = pow( saturate( dot( geometryViewDir, h ) ), 3.0 ) * vThin;
+          reflectedLight.directDiffuse += through * directLight.color * uScatter * material.diffuseColor * 0.55;
+        }`));
+  };
+  return m;
 }
 
 /** Every material a body uses, in group order (see GROUPS). */
@@ -498,7 +586,7 @@ export function bodyMaterials(d: BodyData, gym: GymTextures, tone: "gym" | "lab"
   });
   return [
     suitMaterial(gym, tone),
-    skinMaterial(t),
+    skinMaterial(t, d.variant),
     new THREE.MeshStandardMaterial({ map: t.eyes?.map, roughness: 0.35, metalness: 0 }),
     new THREE.MeshStandardMaterial({ map: t.shoes?.map, normalMap: t.shoes?.normalMap, roughness: 0.62, metalness: 0 }),
     strands(t.hair?.map, HAIR_TINT[d.variant], 0.4),

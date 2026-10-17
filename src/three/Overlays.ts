@@ -21,6 +21,14 @@ export const BONES: [Joint, Joint][] = [
 export const MARKERS: Joint[] = ["chest", "pelvis", "shoulderL", "shoulderR", "elbowL", "elbowR", "wristL", "wristR", "hipL", "hipR", "kneeL", "kneeR", "ankleL", "ankleR"];
 
 // RED is signal-ink on dark; in range (GREEN) stays neutral Chalk: the design system has no green.
+/** The camera's rotation as seen from inside `obj`'s parent: billboards stay square to the viewer even
+ *  when the world they sit in is turned (Turntable). */
+const _pq = new THREE.Quaternion();
+function facing(obj: THREE.Object3D, camera: THREE.Camera, out: THREE.Quaternion) {
+  if (obj.parent) obj.parent.getWorldQuaternion(_pq); else _pq.identity();
+  return out.copy(_pq.invert()).multiply(camera.quaternion);
+}
+
 const CHALK = new THREE.Color("#f2ede4"), RED = new THREE.Color("#ec6157"), GREEN = CHALK.clone(), GREY = new THREE.Color("#6f6a60");
 
 export class Skeleton {
@@ -40,6 +48,7 @@ export class Skeleton {
   private base: THREE.Color;
   private _m = new THREE.Matrix4();
   private _s = new THREE.Vector3();
+  private _q = new THREE.Quaternion();
 
   constructor(lineWidth = 1.6, light = false) {
     this.base = new THREE.Color(light ? "#1b1a17" : "#f2ede4");
@@ -76,7 +85,7 @@ export class Skeleton {
     this.geo.setColors(this.col);
     this.mat.opacity = this.opacity * 0.85;
     this.mat.resolution.set(viewport.width, viewport.height);
-    const m = this._m, q = camera.quaternion, s = this._s;
+    const m = this._m, q = facing(this.group, camera, this._q), s = this._s;
     MARKERS.forEach((j, i) => {
       const flagged = this.flag.has(j), good = this.good.has(j);
       const size = (flagged || good ? 0.022 : 0.012) * (j === "head" ? 1.6 : 1);
@@ -128,6 +137,7 @@ export class Ripple {
   private rings: THREE.Mesh[] = [];
   at = new THREE.Vector3();
   strength = 0;  // 0..1, how active the buzz is
+  private _q = new THREE.Quaternion();
   constructor(color = "#ec6157") {
     for (let i = 0; i < 3; i++) {
       const m = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 64), new THREE.MeshBasicMaterial({ color, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
@@ -139,10 +149,11 @@ export class Ripple {
   update(t: number, camera: THREE.Camera) {
     this.group.visible = this.strength > 0.002;
     if (!this.group.visible) return;
+    facing(this.rings[0], camera, this._q);
     this.rings.forEach((m, i) => {
       const k = ((t * 1.6 + i / 3) % 1);
       m.position.copy(this.at);
-      m.quaternion.copy(camera.quaternion);
+      m.quaternion.copy(this._q);
       m.scale.setScalar(0.03 + k * 0.17);
       (m.material as THREE.MeshBasicMaterial).opacity = (1 - k) ** 1.6 * this.strength;
     });

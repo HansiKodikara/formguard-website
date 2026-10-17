@@ -90,3 +90,55 @@ export function studioEnv() {
   }));
   return envP;
 }
+
+// ── skin detail (procedural) ────────────────────────────────────────────────────────────
+
+let skinDetailT: { normal: THREE.DataTexture; rough: THREE.DataTexture } | null = null;
+
+/**
+ * Two small tiling maps that break up the skin's single smooth shell, made here rather than downloaded:
+ * a micro-normal of pores over fine grain, and a soft roughness field so the shine varies across the skin.
+ * Both wrap seamlessly, so they tile at any repeat.
+ */
+export function skinDetail() {
+  if (skinDetailT) return skinDetailT;
+  let seed = 7;
+  const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  // height: a fine grain, then ~900 pores as soft pits
+  const N = 256, h = new Float32Array(N * N);
+  for (let i = 0; i < h.length; i++) h[i] = (rand() - 0.5) * 0.18;
+  for (let k = 0; k < 900; k++) {
+    const cx = rand() * N, cy = rand() * N, r = 0.9 + rand() * 1.1, depth = 0.6 + rand() * 0.6;
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+      const x = (Math.floor(cx) + dx + N) % N, y = (Math.floor(cy) + dy + N) % N;
+      const d2 = ((Math.floor(cx) + dx - cx) ** 2 + (Math.floor(cy) + dy - cy) ** 2) / (r * r);
+      h[y * N + x] -= depth * Math.exp(-d2 * 1.6);
+    }
+  }
+  const nrm = new Uint8Array(N * N * 4);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const at = (xx: number, yy: number) => h[((yy + N) % N) * N + ((xx + N) % N)];
+    const sx = (at(x + 1, y) - at(x - 1, y)) * 0.9, sy = (at(x, y + 1) - at(x, y - 1)) * 0.9;
+    const l = Math.hypot(sx, sy, 1), o = (y * N + x) * 4;
+    nrm[o] = (-sx / l * 0.5 + 0.5) * 255; nrm[o + 1] = (-sy / l * 0.5 + 0.5) * 255; nrm[o + 2] = (1 / l * 0.5 + 0.5) * 255; nrm[o + 3] = 255;
+  }
+  // roughness: smooth value noise (bilinear over an 8×8 lattice, wrapped), 0.4 … 0.62
+  const R = 128, G = 8, lat = Array.from({ length: G * G }, rand), rough = new Uint8Array(R * R * 4);
+  const s = (t: number) => t * t * (3 - 2 * t);
+  for (let y = 0; y < R; y++) for (let x = 0; x < R; x++) {
+    const fx = (x / R) * G, fy = (y / R) * G, ix = Math.floor(fx), iy = Math.floor(fy), tx = s(fx - ix), ty = s(fy - iy);
+    const L = (a: number, b: number) => lat[((b % G) * G) + (a % G)];
+    const v = (L(ix, iy) * (1 - tx) + L(ix + 1, iy) * tx) * (1 - ty) + (L(ix, iy + 1) * (1 - tx) + L(ix + 1, iy + 1) * tx) * ty;
+    const o = (y * R + x) * 4, g = (0.4 + v * 0.22) * 255;
+    rough[o] = rough[o + 1] = rough[o + 2] = g; rough[o + 3] = 255;
+  }
+  const tex = (data: Uint8Array, size: number) => {
+    const t = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;
+    t.anisotropy = 8; t.needsUpdate = true;
+    return t;
+  };
+  skinDetailT = { normal: tex(nrm, N), rough: tex(rough, R) };
+  return skinDetailT;
+}

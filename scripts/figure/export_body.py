@@ -47,7 +47,7 @@ ATHLETE_LOCAL = {
 VARIANTS = {
     # the main lifter: an athletic adult man, 1.75 m
     "lifter": dict(phen=dict(gender=1.0, age=0.5, muscle=0.82, weight=0.5, height=0.66, proportions=0.85), local=ATHLETE_LOCAL,
-                   dress=dict(skin="young_african_male", eyes="brown", brows="eyebrow009", lashes="eyelashes01", hair="short02", shoes="shoes06")),
+                   dress=dict(skin="young_caucasian_male2", eyes="brown", brows="eyebrow009", lashes="eyelashes01", hair="short02", shoes="shoes06")),
     # "your body, not a textbook": same lift, different levers
     "long": dict(phen=dict(gender=1.0, age=0.5, muscle=0.78, weight=0.48, height=0.6, proportions=0.6),
                  local={**ATHLETE_LOCAL, "upperlegs-height-incr": 0.55, "lowerlegs-height-incr": 0.05},

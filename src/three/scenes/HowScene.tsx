@@ -14,6 +14,8 @@ import { breath, idle, smooth, squatDepth, valgusCurve } from "../lifts";
 import { NODES, bodyResource } from "../body";
 import type { SceneProps } from "../../components/Stage";
 import { gymTextures, studioEnv } from "../textures";
+import { PLATFORM_TOP } from "../props";
+import { Turntable } from "../Turntable";
 
 /** Everything the scene draws, fetched before it mounts, so nothing pops in after the fade. */
 export function preload() {
@@ -117,8 +119,9 @@ function Director({ progress, frame, onAnchors, frozenP }: {
     if (pc.fov !== shot.fov) { pc.fov = shot.fov; pc.updateProjectionMatrix(); }
     const f = frame.current;
     if (f && onAnchors) {
+      // rig space → world: the lifter may be turned on the turntable
       const proj = (p: THREE.Vector3) => {
-        v.copy(p).project(camera);
+        v.copy(p).applyMatrix4(f.fig.group.matrixWorld).project(camera);
         return { x: (v.x * 0.5 + 0.5) * size.width, y: (-v.y * 0.5 + 0.5) * size.height, visible: v.z < 1 };
       };
       onAnchors({ knee: proj(f.fig.nodePos.get("kneeL") ?? f.rig.j.kneeL), ghost: proj(f.ghost.j.kneeR) });
@@ -152,8 +155,10 @@ export default function HowScene({ active, progress, onAnchors, frozenP }: Scene
   };
   return (
     <Canvas frameloop={active ? "always" : "never"} shadows dpr={[1, 1.6]} gl={{ antialias: true, alpha: true }} camera={{ fov: 27, position: SHOTS[0].pos, near: 0.1, far: 40 }}>
-      <Daylight showRack rackX={0.5} rackZ={-2.1} />
-      <Suspense fallback={null}><Lifter tone="lab" script={script} frozenT={frozenP !== undefined ? 2 : undefined} /></Suspense>
+      <Turntable>
+        <Daylight showRack rackX={0.5} rackZ={-2.1} />
+        <Suspense fallback={null}><Lifter tone="lab" script={script} floor={PLATFORM_TOP} frozenT={frozenP !== undefined ? 2 : undefined} /></Suspense>
+      </Turntable>
       <Director progress={progress} frame={frame} onAnchors={onAnchors} frozenP={frozenP} />
     </Canvas>
   );

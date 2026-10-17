@@ -121,10 +121,13 @@ export function barbell(gym: GymTextures, kind: "olympic" | "curl" = "olympic"):
   };
 }
 
+/** The platform's top surface: the floor the lifter stands on. */
+export const PLATFORM_TOP = 0.045;
+
 /** Olympic platform: oak centre (where the lifter stands), rubber sides (where plates land). */
 export function platform(gym: GymTextures, tone: "gym" | "lab") {
   const g = new THREE.Group();
-  const H = 0.045, S = 2.44, W = 1.22;
+  const H = PLATFORM_TOP, S = 2.44, W = 1.22;
   const wood = new THREE.Mesh(boxUVs(new THREE.BoxGeometry(W, H, S), 1.6),
     pbr(tiled(gym.wood, 1, 1, Math.PI / 2), { color: tone === "gym" ? "#6f6253" : "#fff6ea", roughness: 1.15, normalStrength: 0.6 }));
   wood.position.y = H / 2;
