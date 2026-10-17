@@ -1,0 +1,57 @@
+/* FormGuard design tokens. Tailwind v4 reads @theme as its config and exposes every token as a CSS variable. */
+@import "tailwindcss";
+@source not "../../logo";
+@source not "../../logo-explorations.html";
+@source not "../../brand";
+
+@theme {
+  /* ── colour: brand ─────────────────────────────────────────────── */
+  --color-iron: #1b1a17;          /* text on light, dark "gym" sections */
+  --color-chalk: #f2ede4;         /* light sections, text on dark */
+  --color-red: #c62b22;           /* Plate Red: brand accent, FLAGGED reps (graphics, large type) */
+  --color-red-on-dark: #ea5a4e;   /* small red text on Iron (5.0:1); same hue, lifted */
+  /* ── colour: functional (feedback only, always with an icon + label) */
+  --color-go: #1b6e53;            /* GOOD rep on Chalk (5.3:1) */
+  --color-go-on-dark: #4fc193;    /* GOOD rep on Iron (7.8:1) */
+  /* ── colour: neutrals derived from Iron and Chalk ──────────────── */
+  --color-iron-2: #23221e;        /* raised surface on dark */
+  --color-iron-3: #2f2d29;        /* hairlines on dark */
+  --color-iron-4: #47443d;        /* strong rules on dark, inactive nodes */
+  --color-stone-6: #6b665e;       /* muted text on Chalk (4.9:1) */
+  --color-stone-4: #9a948a;       /* muted text on Iron (5.8:1) */
+  --color-chalk-3: #d6cfc1;       /* rules on Chalk */
+  --color-chalk-2: #e7e1d5;       /* raised surface on Chalk */
+
+  /* ── type ─────────────────────────────────────────────────────── */
+  --font-display: "FG Display", "FG Display Fallback", Arial, sans-serif;  /* Hubot Sans, renamed subset */
+  --font-text: "FG Text", "FG Text Fallback", Arial, sans-serif;        /* Mona Sans, renamed subset */
+  --font-mono: "FG Mono", ui-monospace, "SFMono-Regular", Menlo, monospace; /* IBM Plex Mono, renamed subset */
+
+  /* scale: big, deliberate jumps. Fluid between 390px and 1920px. */
+  --text-mono: 0.75rem;                                     /* 12 — labels, readouts */
+  --text-mono--line-height: 1.35;
+  --text-small: 0.875rem;                                   /* 14 */
+  --text-small--line-height: 1.5;
+  --text-body: 1.0625rem;                                   /* 17 */
+  --text-body--line-height: 1.55;
+  --text-lead: clamp(1.1875rem, 0.95rem + 0.6vw, 1.5rem);   /* 19 → 24 */
+  --text-lead--line-height: 1.42;
+  --text-h3: clamp(1.625rem, 1.2rem + 1.5vw, 2.75rem);      /* 26 → 44 */
+  --text-h3--line-height: 1.04;
+  --text-h2: clamp(2.5rem, 1.4rem + 4.2vw, 6rem);            /* 40 → 96 */
+  --text-h2--line-height: 0.96;
+  --text-h1: clamp(2.75rem, 1rem + 8.4vw, 10.5rem);         /* 44 → 168 · 'COACHING,' = 6.83em fits 350px at 390 */
+  --text-h1--line-height: 0.9;
+  --text-giant: clamp(3.5rem, 19vw, 22rem);                 /* 74 → 352 · '$70–120' = 4.36em fits every width */
+  --text-giant--line-height: 0.82;
+
+  /* ── space (4px base; sections pick from the large end) ───────── */
+  --spacing: 0.25rem;
+
+  /* ── motion ───────────────────────────────────────────────────── */
+  --ease-physical: cubic-bezier(0.22, 1, 0.36, 1);   /* fast start, long settle: a bar coming to rest */
+  --ease-lift: cubic-bezier(0.65, 0, 0.35, 1);        /* symmetric: a rep */
+
+  /* ── breakpoints (Tailwind defaults + full HD) ────────────────── */
+  --breakpoint-3xl: 120rem;
+}

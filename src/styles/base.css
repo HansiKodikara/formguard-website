@@ -1,0 +1,96 @@
+@import "./tokens.css";
+
+/* ── fonts (self-hosted, OFL; renamed subsets — see public/fonts/OFL-*.txt) ───────────── */
+@font-face { font-family: "FG Display"; src: url("/fonts/fg-display.woff2") format("woff2"); font-weight: 600 900; font-stretch: 100% 125%; font-display: swap; }
+@font-face { font-family: "FG Text"; src: url("/fonts/fg-text.woff2") format("woff2"); font-weight: 380 900; font-stretch: 100% 125%; font-display: swap; }
+@font-face { font-family: "FG Mono"; src: url("/fonts/fg-mono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "FG Mono"; src: url("/fonts/fg-mono-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "FG Mono"; src: url("/fonts/fg-mono-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+/* metric-matched fallbacks (measured with HarfBuzz) so the swap doesn't reflow the hero */
+@font-face { font-family: "FG Display Fallback"; src: local("Arial Bold"), local("Arial-BoldMT"), local("Arial"); font-weight: 700 900; size-adjust: 112.8%; ascent-override: 96.6%; descent-override: 28.4%; line-gap-override: 0%; }
+@font-face { font-family: "FG Text Fallback"; src: local("Arial"), local("ArialMT"); size-adjust: 104.9%; ascent-override: 103.9%; descent-override: 30.5%; line-gap-override: 0%; }
+
+/* ── layout system ──────────────────────────────────────────────────────────────────── */
+:root {
+  --margin: clamp(20px, 4.4vw, 88px);   /* outer margin */
+  --gutter: clamp(12px, 1.5vw, 28px);   /* column gap */
+  --maxw: 1760px;
+  --header-h: 64px;
+  color-scheme: light;
+}
+
+@utility wrap { width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: var(--margin); }
+@utility grid-12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gutter); }
+
+/* ── type roles ─────────────────────────────────────────────────────────────────────── */
+@utility t-display { font-family: var(--font-display); font-weight: 800; font-stretch: 110%; letter-spacing: -0.012em; }
+@utility t-head { font-family: var(--font-display); font-weight: 760; font-stretch: 105%; letter-spacing: -0.008em; }
+@utility t-num { font-family: var(--font-text); font-weight: 860; font-stretch: 125%; letter-spacing: -0.035em; font-variant-numeric: lining-nums; }
+@utility t-mono { font-family: var(--font-mono); font-size: var(--text-mono); line-height: 1.35; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; }
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: auto; }
+body { overflow-x: clip; }
+body {
+  margin: 0;
+  background: var(--color-chalk);
+  color: var(--color-iron);
+  font-family: var(--font-text);
+  font-size: var(--text-body);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: var(--color-red); color: var(--color-chalk); }
+
+/* visible, on-brand focus — Plate Red clears 3:1 on both Chalk and Iron */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-red);
+  outline-offset: 3px;
+  border-radius: 0;
+}
+
+/* ── surfaces & textures ────────────────────────────────────────────────────────────── */
+.surface-iron { background: var(--color-iron); color: var(--color-chalk); }
+.surface-chalk { background: var(--color-chalk); color: var(--color-iron); }
+
+/* grain sits above the background, under content; never intercepts input */
+.grain { position: relative; isolation: isolate; }
+.grain::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: url("/textures/chalk-grain.png"); background-size: 128px;
+  mix-blend-mode: multiply; opacity: 0.22;
+}
+.surface-iron.grain::before { background-image: url("/textures/film-grain.png"); mix-blend-mode: soft-light; opacity: 0.22; }
+
+/* the platform grid: 1 m squares at 48px, faint */
+.platform-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, currentColor 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, currentColor 7%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ── reduced motion: nothing moves for decoration ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* semantic colours per surface — components read these, so they work on Chalk and on Iron */
+.surface-iron, .surface-chalk { color: var(--fg); }
+.surface-iron {
+  --fg: var(--color-chalk); --muted: var(--color-stone-4); --rule: var(--color-iron-3); --rule-strong: var(--color-iron-4);
+  --field-bg: var(--color-iron-2); --field-border: var(--color-stone-4);
+  --flag: var(--color-red-on-dark); --flag-mark: var(--color-red); --good: var(--color-go-on-dark);
+  --bg: var(--color-iron);
+}
+.surface-chalk {
+  --fg: var(--color-iron); --muted: var(--color-stone-6); --rule: var(--color-chalk-3); --rule-strong: #bdb5a6;
+  --field-bg: #f8f5ef; --field-border: var(--color-stone-6);
+  --flag: var(--color-red); --flag-mark: var(--color-red); --good: var(--color-go);
+  --bg: var(--color-chalk);
+}
+
+@keyframes fg-wave { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
