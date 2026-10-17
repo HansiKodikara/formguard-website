@@ -43,3 +43,32 @@ export function repAt(t: number, period: number) {
   const x = Math.max(0, t) / period;
   return { index: Math.floor(x), phase: x - Math.floor(x) };
 }
+
+// ── life: what a body does between and around the reps ──────────────────────────────────
+
+/** Slow, layered drift: three incommensurate sines, roughly in [−1, 1], never repeating visibly. */
+const drift = (t: number, s: number) => Math.sin(t * 0.37 + s) * 0.5 + Math.sin(t * 0.71 + s * 2.1) * 0.3 + Math.sin(t * 1.33 + s * 3.7) * 0.2;
+
+/** Idle movement: the head glances and settles, the weight drifts between the feet. Degrees and metres. */
+export function idle(t: number) {
+  return {
+    head: { yaw: drift(t, 1.3) * 4.5, nod: drift(t * 0.8, 4.1) * 2.2, roll: drift(t * 0.6, 7.7) * 1.6 },
+    sway: drift(t * 0.45, 9.2) * 0.011,
+  };
+}
+
+/** The breath through one squat rep (same phase as squatDepth): a big inhale and brace at the top, held
+ *  through the descent and the bottom, let out on the drive. −0.6 is resting, 1.4 is fully braced. */
+export function braceBreath(phase: number) {
+  const p = phase - Math.floor(phase);
+  if (p < 0.08) return -0.6 + 2 * sine(p / 0.08);
+  if (p < 0.6) return 1.4 - 0.15 * ((p - 0.08) / 0.52);
+  if (p < 0.86) return 1.25 - 1.85 * sine((p - 0.6) / 0.26);
+  return -0.6;
+}
+
+/** No two reps alike: each rep's depth, 0.95–1 of the target, from the rep's index. */
+export function repDepth(index: number) {
+  const x = Math.sin((index + 1) * 78.233) * 43758.5453;
+  return 0.95 + 0.05 * (x - Math.floor(x));
+}

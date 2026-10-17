@@ -17,6 +17,10 @@ export type BodyMeasure = {
 /** Material groups, in draw order (see export_body.py). */
 export const GROUPS = ["suit", "skin", "eyes", "shoes", "hair", "brows", "lashes"] as const;
 export type Group = (typeof GROUPS)[number];
+/** Split off the eyes at load: MakeHuman's high-poly eyes carry a cornea shell, UV-mapped to a corner patch
+ *  of the eye texture, that must draw as clear, wet glass over the iris (not as an opaque disc). */
+const CORNEA = GROUPS.length;
+const isCorneaUV = (u: number, v: number) => u > 0.8 && v < 0.2;
 type TexSet = { map?: string; normalMap?: string };
 type VariantData = {
   vertexCount: number; indexCount: number; bboxMin: V3; bboxMax: V3; bind: number[]; measure: BodyMeasure;
@@ -78,13 +82,78 @@ function geometry(d: BodyData) {
   g.setAttribute("normal", new THREE.BufferAttribute(new Int8Array(nrm), 3, true));
   g.setAttribute("uv", new THREE.BufferAttribute(new Uint16Array(uv), 2, true));
   g.setAttribute("aSeam", new THREE.BufferAttribute(seam, 2));
-  g.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(Uint16Array.from(skinI), 4));
-  g.setAttribute("skinWeight", new THREE.BufferAttribute(new Float32Array(skinW).map((w) => w / 255), 4));
-  g.setIndex(new THREE.BufferAttribute(new Uint16Array(idx), 1));
-  for (const grp of v.groups) g.addGroup(grp.start, grp.count, GROUPS.indexOf(grp.name));
+  const sI = Uint16Array.from(skinI), sW = new Float32Array(skinW).map((w) => w / 255);
+  const tris = new Uint16Array(idx);
+  const range = (name: Group) => v.groups.find((x) => x.name === name)!;
+  const verts = (name: Group) => { const r = range(name); return new Set(tris.subarray(r.start, r.start + r.count)); };
+  const lids = eyelids(pos, verts("eyes"), verts("skin"), verts("lashes"), sI, sW, d.meta.bones.length);
+  g.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(sI, 4));
+  g.setAttribute("skinWeight", new THREE.BufferAttribute(sW, 4));
+  // the eye group: eyeballs first, then the cornea shells as their own group
+  const eye = range("eyes");
+  const ball: number[] = [], cornea: number[] = [];
+  for (let t = eye.start; t < eye.start + eye.count; t += 3) {
+    const a = tris[t];
+    (isCorneaUV(uv[a * 2] / 65535, uv[a * 2 + 1] / 65535) ? cornea : ball).push(tris[t], tris[t + 1], tris[t + 2]);
+  }
+  tris.set(ball, eye.start);
+  tris.set(cornea, eye.start + ball.length);
+  g.setIndex(new THREE.BufferAttribute(tris, 1));
+  for (const grp of v.groups) {
+    if (grp.name !== "eyes") { g.addGroup(grp.start, grp.count, GROUPS.indexOf(grp.name)); continue; }
+    g.addGroup(grp.start, ball.length, GROUPS.indexOf("eyes"));
+    g.addGroup(grp.start + ball.length, cornea.length, CORNEA);
+  }
+  g.userData.eyeCentres = lids;
   g.computeBoundingSphere();
   geoCache.set(d.variant, g);
   return g;
+}
+
+/**
+ * The rig has no eyelid bones, so we add two (one per eye, pivoting at the eyeball's centre) and hand them
+ * the upper lid: skin and upper lashes above the eye opening, weighted by how far above it they sit. Rotating
+ * a lid bone about X then rolls the lid down over the eyeball, the way a real lid slides over the cornea.
+ * Measured on the Anny head: the opening spans about −26° (lower lid) to +17° (upper lid) about the centre.
+ * Returns the eye centres (bind pose), [left, right]; lid bones are appended as bone `nb` (L) and `nb + 1` (R).
+ */
+function eyelids(pos: Float32Array, eye: Set<number>, skin: Set<number>, lashes: Set<number>, sI: Uint16Array, sW: Float32Array, nb: number) {
+  const centres = [1, -1].map((side) => {
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const i of eye) {
+      if (Math.sign(pos[i * 3]) !== side) continue;
+      for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], pos[i * 3 + a]); hi[a] = Math.max(hi[a], pos[i * 3 + a]); }
+    }
+    return new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2);
+  });
+  const deg = 180 / Math.PI;
+  const assign = (i: number, bone: number, w: number) => {
+    if (w <= 0.01) return;
+    let k = 0;   // replace the weakest influence, scale the rest so the weights still sum to 1
+    for (let j = 1; j < 4; j++) if (sW[i * 4 + j] < sW[i * 4 + k]) k = j;
+    sW[i * 4 + k] = 0;
+    let sum = 0;
+    for (let j = 0; j < 4; j++) sum += sW[i * 4 + j];
+    for (let j = 0; j < 4; j++) sW[i * 4 + j] *= sum > 0 ? (1 - w) / sum : 0;
+    sI[i * 4 + k] = bone; sW[i * 4 + k] = w;
+  };
+  const ramp = (a: number, b: number, x: number) => Math.min(1, Math.max(0, (x - a) / (b - a)));
+  centres.forEach((c, s) => {
+    for (const set of [skin, lashes]) {
+      for (const i of set) {
+        const dx = pos[i * 3] - c.x, dy = pos[i * 3 + 1] - c.y, dz = pos[i * 3 + 2] - c.z;
+        const r = Math.hypot(dx, dy, dz);
+        if (dz < -0.004 || r > 0.026 || Math.abs(dx) > 0.022) continue;
+        const phi = Math.atan2(dy, dz) * deg;   // elevation about the eye's horizontal axis
+        // full weight from the lid margin up the lid, fading out below the brow and toward the corners
+        const w = set === lashes
+          ? (dy > 0 ? 1 : 0)
+          : ramp(8, 16, phi) * (1 - ramp(42, 78, phi)) * (1 - ramp(0.013, 0.021, Math.abs(dx))) * (1 - ramp(0.02, 0.026, r));
+        assign(i, nb + s, w);
+      }
+    }
+  });
+  return centres;
 }
 
 // ── retargeting ───────────────────────────────────────────────────────────────────────
@@ -102,7 +171,8 @@ for (const s of ["L", "R"] as const) {
     { bone: `wrist.${s}`, toward: `finger3-1.${s}`, rigTo: `hand${s}`, up: `hand${s}`, restUp: [s === "L" ? 1 : -1, 0, 0] },
   );
 }
-const FINGERS = ["finger2", "finger3", "finger4", "finger5"];
+/** Curl per finger segment for a grip around a bar, as a fraction of `grip`: knuckle, middle, tip. */
+const CURL = { fingers: [0.62, 1.12, 0.78], thumb: [0.45, 0.6, 0.6] };
 
 const _m = new THREE.Matrix4(), _a = new THREE.Vector3(), _u = new THREE.Vector3(), _c = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _p = new THREE.Vector3();
@@ -131,29 +201,6 @@ export const NODES = [
 ] as const;
 export type NodeName = (typeof NODES)[number];
 
-const NODE_COLOR: Record<NodeState, THREE.Color> = {
-  off: new THREE.Color("#2b2925"), dim: new THREE.Color("#5a554c"), on: new THREE.Color("#f2ede4"),
-  flag: new THREE.Color("#c62b22"), good: new THREE.Color("#f2ede4"),   // Plate Red for a fault; in range stays neutral
-};
-
-let _halo: THREE.Texture | null = null;
-function haloTexture() {
-  if (_halo) return _halo;
-  const c = document.createElement("canvas");
-  c.width = c.height = 64;
-  const g = c.getContext("2d")!;
-  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0, "rgba(255,255,255,1)");
-  grd.addColorStop(0.16, "rgba(255,255,255,0.55)");
-  grd.addColorStop(0.42, "rgba(255,255,255,0.1)");
-  grd.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 64, 64);
-  _halo = new THREE.CanvasTexture(c);
-  _halo.colorSpace = THREE.SRGBColorSpace;
-  return _halo;
-}
-
 export class Body {
   readonly group = new THREE.Group();
   readonly mesh: THREE.SkinnedMesh;
@@ -169,19 +216,41 @@ export class Body {
   private worldP: THREE.Vector3[] = [];
   private aims: { i: number; aimRest: THREE.Vector3; upRest: THREE.Vector3; a: Aim }[] = [];
   private podVertex = new Map<NodeName, number>();
-  readonly pods = new Map<NodeName, { mesh: THREE.Mesh; mat: THREE.MeshStandardMaterial; halo: THREE.Sprite; state: NodeState; glow: number }>();
+  /** The sensors are woven into the suit, so they're never drawn: each node is a state and a point on the
+   *  skin, which the scene uses to anchor callouts and the buzz. */
+  readonly pods = new Map<NodeName, { state: NodeState }>();
   readonly nodePos = new Map<NodeName, THREE.Vector3>();
-  /** finger curl for a closed grip, degrees */
+  /** finger curl for a closed grip, degrees (the middle joint's bend; see CURL) */
   grip = 72;
+  /** where the eyes look, in the lifter's space; null = straight ahead, a couple of metres out */
+  look: THREE.Vector3 | null = null;
+  /** hold the lids at this much of a blink (0 open … 1 shut) instead of blinking on their own: the lab's stills */
+  blinkHold: number | null = null;
+  /** per finger bone: its flexion axis in the bone's local frame and its curl fraction */
+  private curl = new Map<number, { axis: THREE.Vector3; k: number }>();
+  private eyes: number[] = [];
+  private chest: number[] = [];
+  private clavicles: number[] = [];
+  private lids: number[] = [];
+  // the life in the eyes: blinks and small saccades, on their own clocks
+  private life = { t: 0, nextBlink: 1.2, blink: 0, sacc: new THREE.Vector3(), saccTo: new THREE.Vector3(), nextSacc: 0.6, seed: 1 };
 
   constructor(d: BodyData, material: THREE.Material | THREE.Material[], opts: { pods?: boolean; castShadow?: boolean } = {}) {
     const { meta } = d;
     const v = meta.variants[d.variant];
     this.measure = v.measure;
-    this.parents = meta.parents;
     const bind = v.bind;
-    const world: THREE.Matrix4[] = meta.bones.map((_, i) => new THREE.Matrix4().fromArray(bind, i * 16));
-    meta.bones.forEach((name, i) => {
+    const geo = geometry(d);
+    // the rig's bones, plus the two eyelid bones (eyelids(): children of the head, pivoting at each eye)
+    const head = meta.bones.indexOf("head");
+    const centres = geo.userData.eyeCentres as THREE.Vector3[];
+    const names = [...meta.bones, "lid.L", "lid.R"];
+    this.parents = [...meta.parents, head, head];
+    const world: THREE.Matrix4[] = [
+      ...meta.bones.map((_, i) => new THREE.Matrix4().fromArray(bind, i * 16)),
+      ...centres.map((c) => new THREE.Matrix4().makeTranslation(c.x, c.y, c.z)),
+    ];
+    names.forEach((name, i) => {
       const b = new THREE.Bone();
       b.name = name;
       this.bones.push(b);
@@ -193,7 +262,7 @@ export class Body {
       this.worldQ.push(wq.clone());
       this.worldP.push(wp.clone());
     });
-    meta.bones.forEach((_, i) => {
+    names.forEach((_, i) => {
       const p = this.parents[i];
       const local = p < 0 ? world[i].clone() : new THREE.Matrix4().copy(world[p]).invert().multiply(world[i]);
       const lp = new THREE.Vector3(), lq = new THREE.Quaternion(), ls = new THREE.Vector3();
@@ -208,8 +277,14 @@ export class Body {
       const i = this.byName.get(a.bone)!, t = this.byName.get(a.toward)!;
       this.aims.push({ i, a, aimRest: this.restWorldP[t].clone().sub(this.restWorldP[i]).normalize(), upRest: new THREE.Vector3(...a.restUp) });
     }
+    this.eyes = ["eye.L", "eye.R"].map((n) => this.byName.get(n)!);
+    this.lids = ["lid.L", "lid.R"].map((n) => this.byName.get(n)!);
+    this.chest = ["spine02", "spine01"].map((n) => this.byName.get(n)!);
+    this.clavicles = ["clavicle.L", "clavicle.R"].map((n) => this.byName.get(n)!);
+    this.fingerAxes();
+    this.life.seed = d.variant.length * 7 + 3;
     const skeleton = new THREE.Skeleton(this.bones, world.map((m) => m.clone().invert()));
-    this.mesh = new THREE.SkinnedMesh(geometry(d), material);
+    this.mesh = new THREE.SkinnedMesh(geo, material);
     this.mesh.add(this.bones[0]);
     this.mesh.bind(skeleton, new THREE.Matrix4());
     this.mesh.castShadow = opts.castShadow ?? true;
@@ -218,18 +293,57 @@ export class Body {
     this.group.add(this.mesh);
 
     if (opts.pods !== false) {
-      const podGeo = new THREE.CapsuleGeometry(0.011, 0.024, 6, 14);
       for (const n of NODES) {
-        const mat = new THREE.MeshStandardMaterial({ color: "#1c1b18", emissive: NODE_COLOR.off.clone(), emissiveIntensity: 1, roughness: 0.35 });
-        const mesh = new THREE.Mesh(podGeo, mat);
-        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(), color: "#f2ede4", transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
-        halo.scale.setScalar(0.18);
-        this.group.add(mesh, halo);
-        this.pods.set(n, { mesh, mat, halo, state: "off", glow: 0 });
+        this.pods.set(n, { state: "off" });
         this.nodePos.set(n, new THREE.Vector3());
         this.podVertex.set(n, v.pods[n]);
       }
     }
+  }
+
+  /**
+   * Each finger bends about its own hinge: perpendicular to the segment and to the palm's normal, taken from
+   * the bind pose (wrist → middle knuckle for the hand's long axis, index → little knuckle across it).
+   */
+  private fingerAxes() {
+    const P = (n: string) => this.restWorldP[this.byName.get(n)!];
+    for (const s of ["L", "R"] as const) {
+      const along = new THREE.Vector3().subVectors(P(`finger3-1.${s}`), P(`wrist.${s}`));
+      const across = new THREE.Vector3().subVectors(P(`finger2-1.${s}`), P(`finger5-1.${s}`));
+      const palm = new THREE.Vector3().crossVectors(along, across).normalize().multiplyScalar(s === "L" ? 1 : -1);
+      for (let f = 1; f <= 5; f++) {
+        for (let seg = 1; seg <= 3; seg++) {
+          const i = this.byName.get(`finger${f}-${seg}.${s}`);
+          if (i === undefined) continue;
+          const next = this.byName.get(`finger${f}-${seg + 1}.${s}`);
+          const dir = next !== undefined
+            ? new THREE.Vector3().subVectors(this.restWorldP[next], this.restWorldP[i])
+            : new THREE.Vector3().subVectors(this.restWorldP[i], this.restWorldP[this.parents[i]]);
+          const axis = new THREE.Vector3().crossVectors(dir.normalize(), palm).normalize();
+          axis.applyQuaternion(_qi.copy(this.restWorldQ[i]).invert());   // into the bone's local frame
+          this.curl.set(i, { axis, k: (f === 1 ? CURL.thumb : CURL.fingers)[seg - 1] });
+        }
+      }
+    }
+  }
+
+  private rand() { const x = Math.sin(this.life.seed++ * 12.9898) * 43758.5453; return x - Math.floor(x); }
+
+  /** Advance blinks and saccades. A blink is fast to close (~70 ms) and slower to open (~140 ms). */
+  private live(dt: number) {
+    const L = this.life;
+    L.t += dt;
+    if (L.t > L.nextBlink) {
+      const k = (L.t - L.nextBlink) / 0.21;
+      L.blink = k < 0.33 ? k / 0.33 : k < 1 ? 1 - (k - 0.33) / 0.67 : 0;
+      if (k >= 1) { L.blink = 0; L.nextBlink = L.t + 2.2 + this.rand() * 3.8 - (this.rand() < 0.15 ? 2 : 0); }
+    }
+    if (L.t > L.nextSacc) {
+      // small, quick jumps of gaze around the point of regard, a couple of degrees at most
+      L.saccTo.set((this.rand() - 0.5) * 0.09, (this.rand() - 0.5) * 0.05, 0);
+      L.nextSacc = L.t + 0.5 + this.rand() * 2;
+    }
+    L.sacc.lerp(L.saccTo, Math.min(1, dt * 30));
   }
 
   setNode(n: NodeName, state: NodeState) { const p = this.pods.get(n); if (p) p.state = state; }
@@ -283,12 +397,23 @@ export class Body {
         this.setWorldQ(i, rot.multiply(this.restWorldQ[i]));
       } else {
         this.inherit(i);
-        const name = this.bones[i].name;
-        // close the hand around the bar: curl each finger joint about its local X
-        if (FINGERS.some((f) => name.startsWith(f)) || name.startsWith("finger1")) {
-          const k = name.startsWith("finger1") ? 0.45 : 1;
-          const ang = THREE.MathUtils.degToRad(this.grip * k * (name.includes("-1") ? 0.9 : 1));
-          this.bones[i].quaternion.copy(this.restLocalQ[i]).multiply(_qi.setFromAxisAngle(_u.set(1, 0, 0), ang));
+        const c = this.curl.get(i);
+        if (c) {
+          // close the hand around the bar: each segment about its own hinge
+          this.bones[i].quaternion.copy(this.restLocalQ[i]).multiply(_qi.setFromAxisAngle(c.axis, THREE.MathUtils.degToRad(this.grip * c.k)));
+          this.worldQ[i].copy(this.worldQ[p]).multiply(this.bones[i].quaternion);
+        } else if (this.chest.includes(i) || this.clavicles.includes(i)) {
+          // breathing: the upper spine opens and the shoulders rise on the inhale
+          const ax = this.chest.includes(i) ? _a.set(1, 0, 0) : _a.set(0, 0, i === this.clavicles[0] ? 1 : -1);
+          const deg = this.chest.includes(i) ? -1.1 : 1.8;
+          _q.setFromAxisAngle(ax.applyQuaternion(r.torsoQ), THREE.MathUtils.degToRad(deg * r.breath));
+          this.setWorldQ(i, _q.multiply(this.worldQ[i]));
+        } else if (i === this.eyes[0] || i === this.eyes[1]) {
+          this.gaze(i, r);
+        } else if (i === this.lids[0] || i === this.lids[1]) {
+          // the lid closes for a blink, and follows the eye down when the gaze drops
+          const lift = Math.max(0, -this.gazePitch) * 0.55;
+          this.bones[i].quaternion.copy(this.restLocalQ[i]).multiply(_qi.setFromAxisAngle(_u.set(1, 0, 0), THREE.MathUtils.degToRad((this.blinkHold ?? this.life.blink) * 40) + lift));
           this.worldQ[i].copy(this.worldQ[p]).multiply(this.bones[i].quaternion);
         }
       }
@@ -297,38 +422,33 @@ export class Body {
     this.bones[root].updateMatrixWorld(true);
   }
 
-  /** Pose, then move the sensor pods onto the deformed skin and ease their glow. */
+  private gazePitch = 0;
+  /** Turn an eye toward the point of regard (clamped to ±28°, as far as eyes comfortably rotate). */
+  private gaze(i: number, r: Rig) {
+    const fwd = _a.set(0, 0, 1).applyQuaternion(_q.copy(this.worldQ[i]).multiply(_qi.copy(this.restWorldQ[i]).invert()));
+    const target = this.look ? _p.copy(this.look) : _p.copy(r.j.head).addScaledVector(fwd, 2.5);
+    const want = _c.subVectors(target, this.worldP[i]).normalize();
+    want.x += this.life.sacc.x; want.y += this.life.sacc.y;
+    want.normalize();
+    const ang = fwd.angleTo(want), max = THREE.MathUtils.degToRad(28);
+    if (ang > max) want.lerpVectors(fwd, want, max / ang).normalize();
+    this.gazePitch = Math.asin(Math.max(-1, Math.min(1, want.y))) - Math.asin(Math.max(-1, Math.min(1, fwd.y)));
+    _q.setFromUnitVectors(fwd, want);
+    this.setWorldQ(i, _q.multiply(this.worldQ[i]));
+  }
+
+  /** Pose, then find each sensor node on the deformed skin.
+   *  dt ≥ 0.5 is a snap (a still, or a second render of the same frame): the eyes' clocks don't advance. */
   update(r: Rig, dt = 1 / 60) {
+    if (dt < 0.5) this.live(dt);
     this.pose(r);
-    if (!this.pods.size) return;
-    for (const [n, p] of this.pods) {
+    for (const n of this.pods.keys()) {
       const vi = this.podVertex.get(n)!;
       const pos = this.nodePos.get(n)!;
       pos.fromBufferAttribute(this.mesh.geometry.attributes.position as THREE.BufferAttribute, vi);
       this.mesh.applyBoneTransform(vi, pos);   // skinned, in the lifter's local space (same as the rig)
-      // sit the pod just proud of the skin, facing out from the nearest joint
-      const joint = podJoint(n, r);
-      _a.copy(pos).sub(joint).normalize();
-      p.mesh.position.copy(pos).addScaledVector(_a, 0.006);
-      p.mesh.quaternion.setFromUnitVectors(_u.set(0, 0, 1), _a);
-      p.mesh.rotateX(Math.PI / 2);
-      p.halo.position.copy(pos).addScaledVector(_a, 0.02);
-      const target = p.state === "off" ? 0 : p.state === "dim" ? 0.25 : 1;
-      p.glow += (target - p.glow) * Math.min(1, dt * 7);
-      const col = NODE_COLOR[p.state];
-      p.mat.emissive.copy(NODE_COLOR.off).lerp(col, p.glow);
-      p.mat.emissiveIntensity = 1 + p.glow * (p.state === "flag" ? 2.4 : 1.6);
-      const hm = p.halo.material as THREE.SpriteMaterial;
-      hm.color.copy(col);
-      hm.opacity = p.state === "off" || p.state === "dim" ? 0 : p.glow * (p.state === "flag" ? 1 : 0.7);
     }
   }
-}
-
-function podJoint(n: NodeName, r: Rig): THREE.Vector3 {
-  if (n === "tspine") return r.j.chest;
-  if (n === "lspine") return r.j.lumbar;
-  return r.j[n as keyof Rig["j"]];
 }
 
 // ── materials ─────────────────────────────────────────────────────────────────────────
@@ -379,18 +499,28 @@ export function bodyMaterials(d: BodyData, gym: GymTextures, tone: "gym" | "lab"
   return [
     suitMaterial(gym, tone),
     skinMaterial(t),
-    new THREE.MeshPhysicalMaterial({ map: t.eyes?.map, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.04 }),
+    new THREE.MeshStandardMaterial({ map: t.eyes?.map, roughness: 0.35, metalness: 0 }),
     new THREE.MeshStandardMaterial({ map: t.shoes?.map, normalMap: t.shoes?.normalMap, roughness: 0.62, metalness: 0 }),
     strands(t.hair?.map, HAIR_TINT[d.variant], 0.4),
     strands(t.brows?.map, "#3a2e28", 0.3),
     strands(t.lashes?.map, "#1c1715", 0.3),
+    corneaMaterial(),
   ];
+}
+
+/** The cornea: clear and wet. It adds only its reflections (black base, additive), so the iris shows
+ *  through with a catchlight on top: the single biggest cue that the eyes are alive. */
+function corneaMaterial() {
+  return new THREE.MeshPhysicalMaterial({
+    color: "#000000", roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02,
+    specularIntensity: 1, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
 }
 
 /** The ghost draws the body's surface only: no eyes, hair or trainers. */
 export function ghostMaterials(ghost: THREE.Material): THREE.Material[] {
   const none = new THREE.MeshBasicMaterial({ visible: false });
-  return GROUPS.map((g) => (g === "suit" || g === "skin" ? ghost : none));
+  return [...GROUPS.map((g) => (g === "suit" || g === "skin" ? ghost : none)), none];
 }
 
 /** "Your normal": fresnel edges only, skinned, so it reads as an outline you can see the lift through. */

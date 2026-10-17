@@ -51,7 +51,7 @@ export function Lifter({ variant = "lifter", tone = "gym", script, bar = "olympi
       ((f.ghostFig.mesh.material as THREE.Material[])[0] as THREE.ShaderMaterial).uniforms.uOpacity.value = f.ghostOpacity;
     }
     f.bar.group.visible = f.barVisible && f.rig.bar.on;
-    if (f.bar.group.visible) f.bar.set(f.rig.bar.a, f.rig.bar.b);
+    if (f.bar.group.visible) f.bar.set(f.rig.bar.a, f.rig.bar.b, frozenT !== undefined ? undefined : f.dt);
     if (f.traceFrom) f.trace.push(f.traceFrom === "a" ? f.rig.bar.a : f.rig.bar.b);
     f.skeleton.update(f.rig, camera, size);
     f.trace.update(size);

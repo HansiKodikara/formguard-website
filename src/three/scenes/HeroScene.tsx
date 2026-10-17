@@ -5,7 +5,7 @@ import type { PerspectiveCamera } from "three";
 import { Daylight } from "../World";
 import { CameraRig, Lifter, type Script } from "../Lifter";
 import { squat } from "../rig";
-import { breath, repAt, squatDepth } from "../lifts";
+import { braceBreath, breath, idle, repAt, repDepth, squatDepth } from "../lifts";
 import { NODES, bodyResource } from "../body";
 import type { SceneProps } from "../../components/Stage";
 import { gymTextures, studioEnv } from "../textures";
@@ -37,8 +37,10 @@ export default function HeroScene({ active, onHud, frozenT }: SceneProps & { onH
     // two seconds standing while the suit comes online, then steady warm-up reps
     const t = Math.max(0, f.t - 2.2);
     const { index, phase } = repAt(t, HERO_PERIOD);
-    const d = f.t < 2.2 ? 0 : squatDepth(phase);
-    squat(f.rig, f.P, { depth: d, breath: breath(f.t) });
+    const lifting = f.t >= 2.2;
+    const d = lifting ? squatDepth(phase) * repDepth(index) : 0;
+    const life = idle(f.t);
+    squat(f.rig, f.P, { depth: d, breath: lifting ? braceBreath(phase) : breath(f.t), head: life.head, sway: life.sway });
     let lit = 0;
     NODES.forEach((n, i) => {
       const on = f.t > NODE_START + i * NODE_STEP;

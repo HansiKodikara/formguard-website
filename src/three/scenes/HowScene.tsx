@@ -10,7 +10,7 @@ import * as THREE from "three";
 import { Daylight } from "../World";
 import { Lifter, type Frame, type Script } from "../Lifter";
 import { squat } from "../rig";
-import { breath, smooth, squatDepth, valgusCurve } from "../lifts";
+import { breath, idle, smooth, squatDepth, valgusCurve } from "../lifts";
 import { NODES, bodyResource } from "../body";
 import type { SceneProps } from "../../components/Stage";
 import { gymTextures, studioEnv } from "../textures";
@@ -136,7 +136,8 @@ export default function HowScene({ active, progress, onAnchors, frozenP }: Scene
     frame.current = f;
     shown.current += ((frozenP ?? progress.current) - shown.current) * (frozenP !== undefined ? 1 : Math.min(1, f.dt * 6));
     const s = howPose(shown.current);
-    squat(f.rig, f.P, { depth: s.depth, valgusL: s.valgus, valgusR: s.valgus * 0.45, breath: breath(f.t) });
+    const life = idle(f.t);
+    squat(f.rig, f.P, { depth: s.depth, valgusL: s.valgus, valgusR: s.valgus * 0.45, breath: breath(f.t), head: life.head, sway: life.sway });
     squat(f.ghost, f.P, { depth: s.depth });
     f.ghostOpacity = s.ghost;
     f.skeleton.opacity = s.overlay;

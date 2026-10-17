@@ -60,7 +60,8 @@ function plateGeometry(R = 0.225, t = 0.062) {
   return roundUVs(latheX(pts), 2 * Math.PI * R, 2 * R + t, 0.3);
 }
 
-export type Barbell = { group: THREE.Group; set(a: THREE.Vector3, b: THREE.Vector3): void };
+/** `dt` (seconds) lets the loaded ends lag and settle as the bar changes direction; omit it for a still. */
+export type Barbell = { group: THREE.Group; set(a: THREE.Vector3, b: THREE.Vector3, dt?: number): void };
 
 /** Olympic bar (2.2 m) with two bumpers a side, or a short curl bar with small plates. */
 export function barbell(gym: GymTextures, kind: "olympic" | "curl" = "olympic"): Barbell {
@@ -71,31 +72,51 @@ export function barbell(gym: GymTextures, kind: "olympic" | "curl" = "olympic"):
   const shaftGeo = roundUVs(new THREE.CylinderGeometry(0.0145, 0.0145, inner * 2, 24), 2 * Math.PI * 0.0145, inner * 2, 0.012);
   const shaft = new THREE.Mesh(shaftGeo.rotateZ(Math.PI / 2), knurl);
   group.add(shaft);
+  // each loaded end hangs off the shaft at the collar, so it can flex (see set)
+  const ends: THREE.Group[] = [];
   for (const s of [1, -1]) {
+    const end = new THREE.Group();
+    end.position.x = s * inner;
+    group.add(end);
+    ends.push(end);
     const sleeveLen = len / 2 - inner;
     const sleeve = new THREE.Mesh(roundUVs(new THREE.CylinderGeometry(0.025, 0.025, sleeveLen, 32), 2 * Math.PI * 0.025, sleeveLen, 0.4).rotateZ(Math.PI / 2), steel);
-    sleeve.position.x = s * (inner + sleeveLen / 2);
+    sleeve.position.x = s * (sleeveLen / 2);
     const collar = new THREE.Mesh(roundUVs(new THREE.CylinderGeometry(0.036, 0.036, 0.03, 32), 2 * Math.PI * 0.036, 0.03, 0.4).rotateZ(Math.PI / 2), steel);
-    collar.position.x = s * (inner + 0.015);
-    group.add(sleeve, collar);
+    collar.position.x = s * 0.015;
+    end.add(sleeve, collar);
     const plates = kind === "olympic" ? [[0.225, 0.062], [0.225, 0.062]] : [[0.13, 0.03], [0.11, 0.024]];
     let x = inner + 0.03 + 0.004;
     for (const [R, t] of plates) {
       const p = new THREE.Mesh(plateGeometry(R, t), rubber);
-      p.position.x = s * (x + t / 2);
+      p.position.x = s * (x - inner + t / 2);
       const hub = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.36, R * 0.36, t + 0.004, 40, 1, true).rotateZ(Math.PI / 2), steel);
       hub.position.copy(p.position);
-      group.add(p, hub);
+      end.add(p, hub);
       x += t + 0.003;
     }
   }
   group.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   const _d = new THREE.Vector3(), _X = new THREE.Vector3(1, 0, 0);
+  // whip: the loaded ends are a damped spring (~2.6 Hz) driven by the bar's vertical acceleration, so the
+  // plates dip as the bar is driven up out of the bottom and settle after lockout. Only an Olympic bar flexes.
+  const whip = { y: NaN, v: 0, ang: 0, w: 0 };
+  const K = (2 * Math.PI * 2.6) ** 2, C = 2 * 0.22 * Math.sqrt(K), GAIN = kind === "olympic" ? 3.2 : 0;
   return {
     group,
-    set(a, b) {
+    set(a, b, dt) {
       group.position.addVectors(a, b).multiplyScalar(0.5);
       group.quaternion.setFromUnitVectors(_X, _d.subVectors(a, b).normalize());
+      if (dt && dt < 0.2 && GAIN) {
+        const y = group.position.y;
+        const v = Number.isNaN(whip.y) ? 0 : (y - whip.y) / dt;
+        const acc = (v - whip.v) / dt;
+        whip.y = y; whip.v += (v - whip.v) * Math.min(1, dt * 30);
+        whip.w += (-K * whip.ang - C * whip.w + Math.max(-12, Math.min(12, acc)) * GAIN) * dt;
+        whip.ang = Math.max(-0.035, Math.min(0.035, whip.ang + whip.w * dt));
+      }
+      ends[0].rotation.z = -whip.ang;
+      ends[1].rotation.z = whip.ang;
     },
   };
 }

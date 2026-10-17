@@ -42,6 +42,8 @@ export type Rig = {
   torsoQ: Quaternion;
   pelvisQ: Quaternion;
   headQ: Quaternion;
+  /** the breath, −1 (out) … 1 (in; up to ~1.4 when braced): lifts the chest and shoulders on the body */
+  breath: number;
   pole: { kneeL: Vector3; kneeR: Vector3; elbowL: Vector3; elbowR: Vector3 };
   /** the direction the back of each hand faces (wrist roll) */
   handBack: { L: Vector3; R: Vector3 };
@@ -54,7 +56,7 @@ export function makeRig(): Rig {
   const j = {} as Record<Joint, Vector3>;
   for (const n of JOINTS) j[n] = new Vector3();
   return {
-    j, torsoQ: new Quaternion(), pelvisQ: new Quaternion(), headQ: new Quaternion(),
+    j, torsoQ: new Quaternion(), pelvisQ: new Quaternion(), headQ: new Quaternion(), breath: 0,
     pole: { kneeL: new Vector3(), kneeR: new Vector3(), elbowL: new Vector3(), elbowR: new Vector3() },
     handBack: { L: new Vector3(), R: new Vector3() },
     footDir: { L: new Vector3(), R: new Vector3() },
@@ -64,8 +66,8 @@ export function makeRig(): Rig {
 }
 
 // ── math helpers (allocation-free in the hot path) ─────────────────────────────────────
-const X = new Vector3(1, 0, 0);
-const _u = new Vector3(), _v = new Vector3(), _t = new Vector3(), _q2 = new Quaternion();
+const X = new Vector3(1, 0, 0), Y = new Vector3(0, 1, 0), Z = new Vector3(0, 0, 1);
+const _u = new Vector3(), _v = new Vector3(), _t = new Vector3(), _q2 = new Quaternion(), _q3 = new Quaternion();
 const _gL = new Vector3(), _gR = new Vector3(), _pL = new Vector3(), _pR = new Vector3();
 const deg = Math.PI / 180;
 
@@ -119,7 +121,11 @@ function legs(r: Rig, P: Proportions, stance: number, toeOut: number, valgusL: n
   r.angle.valgusR = valgusR;
 }
 
-function upperBody(r: Rig, P: Proportions, pitch: number, headPitch: number, breath = 0) {
+/** Small head movements on top of the lift's own head angle: degrees. */
+export type Head = { yaw?: number; nod?: number; roll?: number };
+
+function upperBody(r: Rig, P: Proportions, pitch: number, headPitch: number, breath = 0, head: Head = {}) {
+  r.breath = breath;
   const { j } = r;
   const pelvis = j.pelvis;
   r.pelvisQ.setFromAxisAngle(X, pitch * 0.82 * deg);
@@ -127,7 +133,9 @@ function upperBody(r: Rig, P: Proportions, pitch: number, headPitch: number, bre
   at(j.lumbar, pelvis, r.torsoQ, ...P.lumbarOff);
   at(j.chest, pelvis, r.torsoQ, P.chestOff[0], P.chestOff[1] + breath * 0.004, P.chestOff[2]);
   at(j.neck, pelvis, r.torsoQ, ...P.neckOff);
-  r.headQ.setFromAxisAngle(X, headPitch * deg);
+  r.headQ.setFromAxisAngle(Y, (head.yaw ?? 0) * deg)
+    .multiply(_q2.setFromAxisAngle(X, (headPitch + (head.nod ?? 0)) * deg))
+    .multiply(_q3.setFromAxisAngle(Z, (head.roll ?? 0) * deg));
   // skull centre: the head bone sits at the base of the skull; the centre is ~9 cm above it
   at(j.head, j.neck, r.headQ, P.headOff[0] - P.neckOff[0], P.headOff[1] - P.neckOff[1] + 0.09, P.headOff[2] - P.neckOff[2] + 0.015);
   const [sx, sy, sz] = P.shoulderOff;
@@ -136,13 +144,15 @@ function upperBody(r: Rig, P: Proportions, pitch: number, headPitch: number, bre
   r.angle.torso = pitch;
 }
 
-function arms(r: Rig, P: Proportions, gripL: Vector3, gripR: Vector3, poleL: Vector3, poleR: Vector3) {
+/** `bar`: on a bar, the wrists bend sideways so the fingers cross the bar square, as a real grip does. */
+function arms(r: Rig, P: Proportions, gripL: Vector3, gripR: Vector3, poleL: Vector3, poleR: Vector3, bar?: Vector3) {
   const { j } = r;
   for (const [side, grip, pole] of [["L", gripL, poleL], ["R", gripR, poleR]] as const) {
     r.pole[`elbow${side}`].copy(pole).normalize();
     r.handBack[side].copy(pole).normalize();
     twoBone(j[`shoulder${side}`], grip, P.upperArm, P.forearm, r.pole[`elbow${side}`], j[`elbow${side}`], j[`wrist${side}`]);
     _u.subVectors(j[`wrist${side}`], j[`elbow${side}`]).normalize();
+    if (bar) _u.addScaledVector(bar, -0.9 * _u.dot(bar)).normalize();
     j[`hand${side}`].copy(j[`wrist${side}`]).addScaledVector(_u, P.hand * 0.5);
   }
   r.angle.elbowL = 180 - angleAt(j.shoulderL, j.elbowL, j.wristL);
@@ -151,7 +161,11 @@ function arms(r: Rig, P: Proportions, gripL: Vector3, gripR: Vector3, poleL: Vec
 
 // ── lifts ─────────────────────────────────────────────────────────────────────────────
 
-export type SquatParams = { depth: number; valgusL?: number; valgusR?: number; breath?: number; leanMax?: number; stance?: number; barOn?: boolean };
+export type SquatParams = {
+  depth: number; valgusL?: number; valgusR?: number; breath?: number; leanMax?: number; stance?: number; barOn?: boolean;
+  /** idle life: head movements (degrees) and a sideways weight shift (metres), both fading out with depth */
+  head?: Head; sway?: number;
+};
 
 /** High-bar back squat. `depth` 0 = locked out, 1 = bottom (hip crease below the knee).
  *  The hips are solved so the bar stays over mid-foot, as it must for a balanced squat. */
@@ -171,27 +185,31 @@ export function squat(r: Rig, P: Proportions, s: SquatParams) {
   const midfoot = P.footLen * 0.18;
   const pr = pitch * deg;
   const barZ = barUp * Math.sin(pr) + barBack * Math.cos(pr);
-  r.j.pelvis.set(0, h, midfoot - barZ);
-  upperBody(r, P, pitch, pitch * 0.6, s.breath ?? 0);
+  // at depth the lifter is locked in: the idle movements fade out
+  const calm = 1 - 0.8 * Math.min(1, d * 2);
+  r.j.pelvis.set((s.sway ?? 0) * calm, h, midfoot - barZ);
+  const hd = s.head ?? {};
+  upperBody(r, P, pitch, pitch * 0.6, s.breath ?? 0, { yaw: (hd.yaw ?? 0) * calm, nod: (hd.nod ?? 0) * calm, roll: (hd.roll ?? 0) * calm });
   hips(r, P);
   legs(r, P, stance, toeOut, s.valgusL ?? 0, s.valgusR ?? 0);
   r.bar.on = s.barOn ?? true;
   const barC = at(_t, r.j.pelvis, r.torsoQ, 0, barUp, barBack);
   r.bar.a.set(1.1, barC.y, barC.z); r.bar.b.set(-1.1, barC.y, barC.z);
-  _gL.set(0.44, barC.y - 0.045, barC.z - 0.03);
-  _gR.set(-0.44, barC.y - 0.045, barC.z - 0.03);
-  arms(r, P, _gL, _gR, _pL.set(0.35, -1, -0.55), _pR.set(-0.35, -1, -0.55));
+  // wrists below and behind the bar, so it sits across the base of the fingers and they wrap over it
+  _gL.set(0.44, barC.y - 0.078, barC.z - 0.032);
+  _gR.set(-0.44, barC.y - 0.078, barC.z - 0.032);
+  arms(r, P, _gL, _gR, _pL.set(0.35, -1, -0.55), _pR.set(-0.35, -1, -0.55), X);
   return r;
 }
 
-export type StandParams = { breath?: number; sway?: number };
+export type StandParams = { breath?: number; sway?: number; head?: Head };
 
 /** Ready stance before the lift: tall, arms relaxed at the sides, weight even. */
 export function stand(r: Rig, P: Proportions, s: StandParams = {}) {
   const hStand = P.ankleH - P.hipOff[1] + P.thigh + P.shin - 0.01;
   const sway = s.sway ?? 0;
   r.j.pelvis.set(sway * 0.01, hStand, 0.004);
-  upperBody(r, P, 1.5, 3, s.breath ?? 0);
+  upperBody(r, P, 1.5, 3, s.breath ?? 0, s.head);
   hips(r, P);
   legs(r, P, 0.34, 12, 0, 0);
   r.bar.on = false;
@@ -205,13 +223,13 @@ export function stand(r: Rig, P: Proportions, s: StandParams = {}) {
   return r;
 }
 
-export type CurlParams = { flex: number; breath?: number; lean?: number };
+export type CurlParams = { flex: number; breath?: number; lean?: number; head?: Head };
 
 /** Standing barbell curl. `flex` is elbow flexion in degrees (≈10 extended → 145 full). */
 export function curl(r: Rig, P: Proportions, c: CurlParams) {
   const hStand = P.ankleH - P.hipOff[1] + P.thigh + P.shin - 0.008;
   r.j.pelvis.set(0, hStand, 0);
-  upperBody(r, P, 2 + (c.lean ?? 0), 4, c.breath ?? 0);
+  upperBody(r, P, 2 + (c.lean ?? 0), 4, c.breath ?? 0, c.head);
   hips(r, P);
   legs(r, P, 0.32, 10, 0, 0);
   const th = c.flex * deg;
@@ -234,7 +252,7 @@ export function curl(r: Rig, P: Proportions, c: CurlParams) {
   return r;
 }
 
-export type BenchParams = { press: number; slip?: number; breath?: number };
+export type BenchParams = { press: number; slip?: number; breath?: number; head?: Head };
 export const BENCH = { top: 0.44, length: 1.22, width: 0.29, z0: -0.62, z1: 0.6 };
 
 /** Bench press along the bench (head toward −Z). `press` 0 = bar on the chest, 1 = lockout.
@@ -248,7 +266,9 @@ export function bench(r: Rig, P: Proportions, b: BenchParams) {
   at(j.lumbar, j.pelvis, r.torsoQ, ...P.lumbarOff);
   at(j.chest, j.pelvis, r.torsoQ, P.chestOff[0], P.chestOff[1], P.chestOff[2] + (b.breath ?? 0) * 0.004);
   at(j.neck, j.pelvis, r.torsoQ, ...P.neckOff);
-  r.headQ.copy(r.torsoQ);
+  r.breath = b.breath ?? 0;
+  // lying back: the head turns about the body's long axis, nods about its own X
+  r.headQ.copy(r.torsoQ).multiply(_q2.setFromAxisAngle(Y, (b.head?.yaw ?? 0) * deg)).multiply(_q3.setFromAxisAngle(X, (b.head?.nod ?? 0) * deg));
   at(j.head, j.neck, r.headQ, P.headOff[0] - P.neckOff[0], P.headOff[1] - P.neckOff[1] + 0.09, P.headOff[2] - P.neckOff[2] + 0.015);
   const [sx, sy, sz] = P.shoulderOff;
   at(j.shoulderL, j.pelvis, r.torsoQ, sx, sy, sz);
@@ -274,7 +294,7 @@ export function bench(r: Rig, P: Proportions, b: BenchParams) {
   const slip = Math.min(1, Math.max(0, b.slip ?? 0));
   _gL.set(0.42 + slip * 0.065, y - 0.04 - slip * 0.045, z);
   _gR.set(-0.42, y - 0.04, z);
-  arms(r, P, _gL, _gR, _pL.set(0.9, -0.2, 0.3), _pR.set(-0.9, -0.2, 0.3));
+  arms(r, P, _gL, _gR, _pL.set(0.9, -0.2, 0.3), _pR.set(-0.9, -0.2, 0.3), X);
   r.bar.on = true;
   r.bar.a.set(1.1, y - slip * 0.075, z); r.bar.b.set(-1.1, y + slip * 0.012, z);
   return r;

@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { Bench, Daylight } from "../World";
 import { Lifter, type Frame, type Script } from "../Lifter";
 import { bench } from "../rig";
-import { benchPress, breath, repAt } from "../lifts";
+import { benchPress, breath, idle, repAt } from "../lifts";
 import { NODES, bodyResource } from "../body";
 import type { Joint } from "../rig";
 import type { SceneProps } from "../../components/Stage";
@@ -54,7 +54,7 @@ function DualRender({ frame, gap }: { frame: React.RefObject<Frame | null>; gap:
         // what each instrument can see
         NODES.forEach((n) => f.fig.setNode(n, phoneView ? "off" : "on"));
         if (!phoneView && slipAt(f.t) > 0.25) f.fig.setNode("wristL", "flag");
-        f.fig.update(f.rig, 1);  // snap pod glow for this view
+        f.fig.update(f.rig, 1);  // a snap: re-find the nodes for this view without advancing the eyes
         f.skeleton.flag.clear(); f.skeleton.hidden.clear();
         if (phoneView) FAR.forEach((j) => f.skeleton.hidden.add(j));
         else if (slipAt(f.t) > 0.25) ["wristL", "elbowL", "handL"].forEach((j) => f.skeleton.flag.add(j as Joint));
@@ -84,7 +84,8 @@ export default function BenchScene({ active, gap = 24, onSlip }: SceneProps & { 
     frame.current = f;
     const { phase, index } = repAt(f.t, BENCH_PERIOD);
     const slip = slipAt(f.t);
-    bench(f.rig, f.P, { press: benchPress(phase), slip, breath: breath(f.t) });
+    const head = idle(f.t).head;
+    bench(f.rig, f.P, { press: benchPress(phase), slip, breath: breath(f.t), head: { yaw: head.yaw * 0.5, nod: head.nod * 0.5 } });
     f.skeleton.opacity = 1;
     f.fig.grip = 78;
     const slipping = slip > 0.25;

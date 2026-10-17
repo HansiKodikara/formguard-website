@@ -2,7 +2,7 @@
 import { Canvas } from "@react-three/fiber";
 import { Suspense } from "react";
 import { bench, curl, squat } from "../three/rig";
-import { breath, benchPress, curlFlex, repAt, squatDepth, valgusCurve } from "../three/lifts";
+import { braceBreath, breath, benchPress, curlFlex, idle, repAt, repDepth, squatDepth, valgusCurve } from "../three/lifts";
 import { CameraRig, Lifter, type Script } from "../three/Lifter";
 import { Bench, Gym, Lab } from "../three/World";
 import { NODES, type Variant } from "../three/body";
@@ -18,6 +18,12 @@ const CAMS: Record<string, { pos: [number, number, number]; target: [number, num
   low: { pos: [1.8, 0.55, 3.6], target: [0, 1.0, 0], fov: 32 },
   benchPhone: { pos: [-1.55, 0.6, -0.15], target: [0, 0.68, -0.25], fov: 48 },
   benchSuit: { pos: [2.2, 2.4, 2.1], target: [0, 0.62, -0.15], fov: 30 },
+  // close-ups for the eyes, the grip and the face
+  face: { pos: [0.28, 1.63, 0.75], target: [0, 1.6, 0.05], fov: 20 },
+  handBack: { pos: [0.95, 1.6, -0.75], target: [0.42, 1.42, -0.06], fov: 20 },
+  handFront: { pos: [0.9, 1.5, 0.75], target: [0.42, 1.42, -0.04], fov: 20 },
+  handStraight: { pos: [0.42, 1.45, 1.1], target: [0.42, 1.42, -0.04], fov: 18 },
+  handSide: { pos: [1.4, 1.45, -0.05], target: [0.42, 1.42, -0.05], fov: 14 },
 };
 
 export function FigureLab() {
@@ -30,19 +36,23 @@ export function FigureLab() {
   const frozen = q.has("t") ? Number(q.get("t")) : undefined;
   const variant = (q.get("body") ?? "lifter") as Variant;
 
+  const blink = q.has("blink") ? Number(q.get("blink")) : null;
+
   const script: Script = (f) => {
     const t = f.t;
+    const life = idle(t);
+    f.fig.blinkHold = blink;
     f.skeleton.opacity = overlay ? 1 : 0;
     f.ghostOpacity = ghost ? 0.55 : 0;
     if (lift === "stand") {
-      squat(f.rig, f.P, { depth: 0, breath: breath(t) });
+      squat(f.rig, f.P, { depth: 0, breath: breath(t), head: life.head, sway: life.sway });
       squat(f.ghost, f.P, { depth: 0 });
       NODES.forEach((n, i) => f.fig.setNode(n, t > 0.4 + i * 0.16 ? "on" : "off"));
     } else if (lift === "squat") {
       const { index, phase } = repAt(t, 3.2);
       const fault = index % 3 === 1;
       const v = fault ? valgusCurve(phase, 13) : 0;
-      squat(f.rig, f.P, { depth: squatDepth(phase), valgusL: v, valgusR: v * 0.55, breath: breath(t) });
+      squat(f.rig, f.P, { depth: squatDepth(phase) * repDepth(index), valgusL: v, valgusR: v * 0.55, breath: braceBreath(phase), head: life.head, sway: life.sway });
       squat(f.ghost, f.P, { depth: squatDepth(phase) });
       f.fig.setAll("on");
       f.skeleton.flag.clear();
@@ -52,14 +62,14 @@ export function FigureLab() {
     } else if (lift === "curl") {
       const { index, phase } = repAt(t, 2.8);
       const range = index % 3 === 2 ? 0.7 : 1;
-      curl(f.rig, f.P, { flex: curlFlex(phase, range), breath: breath(t) });
+      curl(f.rig, f.P, { flex: curlFlex(phase, range), breath: breath(t), head: life.head });
       curl(f.ghost, f.P, { flex: curlFlex(phase, 1) });
       f.fig.setAll("on");
       if (range < 1 && phase > 0.3 && phase < 0.6) f.fig.setNode("elbowR", "flag");
     } else if (lift === "bench") {
       const { index, phase } = repAt(t, 3.4);
       const slip = index % 2 === 1 ? Math.sin(Math.min(1, phase * 1.4) * Math.PI) : 0;
-      bench(f.rig, f.P, { press: benchPress(phase), slip, breath: breath(t) });
+      bench(f.rig, f.P, { press: benchPress(phase), slip, breath: breath(t), head: { yaw: life.head.yaw * 0.5, nod: life.head.nod * 0.5 } });
       bench(f.ghost, f.P, { press: benchPress(phase) });
       f.fig.setAll("on");
       if (slip > 0.3) f.fig.setNode("wristL", "flag");
