@@ -25,13 +25,13 @@ export function Header() {
   const dark = surface === "iron";
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,color] duration-500 ease-[var(--ease-physical)] ${dark ? "surface-iron" : "surface-chalk"} ${scrolled ? "" : "!bg-transparent"} border-b ${scrolled ? "border-[var(--rule)]" : "border-transparent"}`}
+      className={`fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,color] duration-500 ease-[var(--ease-physical)] ${dark ? "surface-iron" : "surface-chalk"} ${scrolled ? "" : "!bg-transparent"} border-b ${scrolled ? "border-[var(--line)]" : "border-transparent"}`}
     >
       <div className="wrap flex h-[var(--header-h)] items-center justify-between">
         <a href="#top" className="-m-2 p-2" aria-label="FormGuard, back to top">
           <Logo tone={dark ? "reversed" : "primary"} height={24} decorative />
         </a>
-        <ButtonLink href="#test-lifter" size="sm" arrow>Become a test lifter</ButtonLink>
+        <ButtonLink href="#test-lifter" size="sm" variant="secondary">Become a test lifter</ButtonLink>
       </div>
       <ScrollScale />
     </header>

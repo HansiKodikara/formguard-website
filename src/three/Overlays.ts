@@ -20,7 +20,8 @@ export const BONES: [Joint, Joint][] = [
 ];
 export const MARKERS: Joint[] = ["chest", "pelvis", "shoulderL", "shoulderR", "elbowL", "elbowR", "wristL", "wristR", "hipL", "hipR", "kneeL", "kneeR", "ankleL", "ankleR"];
 
-const CHALK = new THREE.Color("#f2ede4"), RED = new THREE.Color("#e2372c"), GREEN = new THREE.Color("#4fc193"), GREY = new THREE.Color("#6f6a60");
+// RED is signal-ink on dark; in range (GREEN) stays neutral Chalk: the design system has no green.
+const CHALK = new THREE.Color("#f2ede4"), RED = new THREE.Color("#ec6157"), GREEN = CHALK.clone(), GREY = new THREE.Color("#6f6a60");
 
 export class Skeleton {
   readonly group = new THREE.Group();
@@ -127,7 +128,7 @@ export class Ripple {
   private rings: THREE.Mesh[] = [];
   at = new THREE.Vector3();
   strength = 0;  // 0..1, how active the buzz is
-  constructor(color = "#e2372c") {
+  constructor(color = "#ec6157") {
     for (let i = 0; i < 3; i++) {
       const m = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 64), new THREE.MeshBasicMaterial({ color, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
       m.renderOrder = 12;

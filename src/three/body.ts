@@ -133,7 +133,7 @@ export type NodeName = (typeof NODES)[number];
 
 const NODE_COLOR: Record<NodeState, THREE.Color> = {
   off: new THREE.Color("#2b2925"), dim: new THREE.Color("#5a554c"), on: new THREE.Color("#f2ede4"),
-  flag: new THREE.Color("#e2372c"), good: new THREE.Color("#4fc193"),
+  flag: new THREE.Color("#c62b22"), good: new THREE.Color("#f2ede4"),   // Plate Red for a fault; in range stays neutral
 };
 
 let _halo: THREE.Texture | null = null;

@@ -17,7 +17,7 @@ export function Problem({ caps }: { caps: Caps }) {
   // static views (no WebGL, mobile, reduced motion) show the moment of the slip
   const flagged = caps.live3D ? slip.on : true;
   return (
-    <Section id="problem" surface="bone" label="The problem">
+    <Section id="problem" surface="raised" label="The problem">
       <div className="wrap pb-28 pt-28 lg:pb-40 lg:pt-40">
         <Kicker index="01">The problem</Kicker>
 
@@ -27,7 +27,7 @@ export function Problem({ caps }: { caps: Caps }) {
             <span className="sr-only">70 to 120 dollars a session.</span>
             <span aria-hidden>$70–120</span>
           </p>
-          <div className="col-span-12 text-[var(--muted)]">
+          <div className="col-span-12 text-[var(--ink-muted)]">
             <Scale ticks={75} major={15} range={[70 / 150, 120 / 150]} labels={["$0", "$30", "$60", "$90", "$120", "$150"]} />
           </div>
           <div className="col-span-12 mt-10 grid-12 gap-y-4 lg:mt-14">
@@ -56,20 +56,20 @@ export function Problem({ caps }: { caps: Caps }) {
             {/* labels, in front */}
             <div className="relative grid aspect-[1.25/1] grid-cols-1 gap-[var(--gap)] sm:aspect-[2.35/1] sm:grid-cols-2">
               <figure className="relative rounded-[26px] p-5 sm:p-6">
-                <figcaption className="t-mono flex items-center gap-3 text-[var(--muted)]">
-                  <Icon name="phone" size={18} className="text-[var(--fg)]" />
-                  <span className="text-[var(--fg)]">Phone camera</span> · one angle
+                <figcaption className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
+                  <Icon name="phone" size={18} className="text-[var(--ink)]" />
+                  <span className="text-[var(--ink)]">Phone camera</span> · one angle
                 </figcaption>
-                <p className="t-mono absolute right-6 top-6 hidden text-[var(--muted)] sm:block">1× · 30 fps</p>
-                <p className="t-mono absolute bottom-6 left-6 border border-dashed border-[var(--muted)] bg-chalk/70 px-2.5 py-[5px] text-[var(--muted)]">
+                <p className="t-mono absolute right-6 top-6 hidden text-[var(--ink-muted)] sm:block">1× · 30 fps</p>
+                <p className="t-label absolute bottom-6 left-6 rounded-sm border border-dashed border-[var(--ink-muted)] bg-[var(--ground)]/70 px-2.5 py-[5px] text-[var(--ink-muted)]">
                   Far side · out of view
                 </p>
               </figure>
               <CropMarks className="text-iron">
                 <figure className="relative h-full p-4 sm:p-5">
-                  <figcaption className="t-mono flex items-center gap-3 text-[var(--muted)]">
-                    <Icon name="sides" size={18} className="text-[var(--fg)]" />
-                    <span className="text-[var(--fg)]">FormGuard suit</span> · both sides
+                  <figcaption className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
+                    <Icon name="sides" size={18} className="text-[var(--ink)]" />
+                    <span className="text-[var(--ink)]">FormGuard suit</span> · both sides
                   </figcaption>
                 </figure>
               </CropMarks>
@@ -83,8 +83,8 @@ export function Problem({ caps }: { caps: Caps }) {
             </div>
             <div className="flex flex-wrap items-center gap-3" aria-live="polite">
               {flagged
-                ? <Readout status="flag">Rep {String(slip.rep).padStart(2, "0")} · Grip drift · Left hand</Readout>
-                : <Readout status="good">Rep {String(slip.rep).padStart(2, "0")} · Both sides clean</Readout>}
+                ? <Readout status="fault">Rep {String(slip.rep).padStart(2, "0")} · Grip drift · Left hand</Readout>
+                : <Readout status="clear">Rep {String(slip.rep).padStart(2, "0")} · Both sides clean</Readout>}
             </div>
           </div>
 
