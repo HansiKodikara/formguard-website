@@ -184,6 +184,27 @@ export function squat(r: Rig, P: Proportions, s: SquatParams) {
   return r;
 }
 
+export type StandParams = { breath?: number; sway?: number };
+
+/** Ready stance before the lift: tall, arms relaxed at the sides, weight even. */
+export function stand(r: Rig, P: Proportions, s: StandParams = {}) {
+  const hStand = P.ankleH - P.hipOff[1] + P.thigh + P.shin - 0.01;
+  const sway = s.sway ?? 0;
+  r.j.pelvis.set(sway * 0.01, hStand, 0.004);
+  upperBody(r, P, 1.5, 3, s.breath ?? 0);
+  hips(r, P);
+  legs(r, P, 0.34, 12, 0, 0);
+  r.bar.on = false;
+  // hands hang just off the thighs, elbows soft and pointing back
+  const hy = r.j.pelvis.y - 0.11;
+  _gL.set(P.shoulderOff[0] + 0.09, hy, 0.035);
+  _gR.set(-P.shoulderOff[0] - 0.09, hy, 0.035);
+  arms(r, P, _gL, _gR, _pL.set(0.35, -0.05, -1), _pR.set(-0.35, -0.05, -1));
+  r.handBack.L.set(1, 0, -0.25).normalize();
+  r.handBack.R.set(-1, 0, -0.25).normalize();
+  return r;
+}
+
 export type CurlParams = { flex: number; breath?: number; lean?: number };
 
 /** Standing barbell curl. `flex` is elbow flexion in degrees (≈10 extended → 145 full). */

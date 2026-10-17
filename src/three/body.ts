@@ -5,6 +5,7 @@
  */
 import * as THREE from "three";
 import type { Rig } from "./rig";
+import { resource, texture, tiled, type GymTextures, type Resource } from "./textures";
 
 // ── data ──────────────────────────────────────────────────────────────────────────────
 
@@ -13,73 +14,74 @@ export type BodyMeasure = {
   height: number; thigh: number; shin: number; upperArm: number; forearm: number; hand: number; footLen: number; ankleH: number;
   pelvis: V3; hipL: V3; shoulderL: V3; neck: V3; head: V3; chest: V3; lumbar: V3; shoulderUp: number;
 };
-type VariantData = { bboxMin: V3; bboxMax: V3; bind: number[]; measure: BodyMeasure; pods: Record<string, number> };
-type Meta = { vertexCount: number; triangleCount: number; bones: string[]; parents: number[]; variants: Record<string, VariantData> };
+/** Material groups, in draw order (see export_body.py). */
+export const GROUPS = ["suit", "skin", "eyes", "shoes", "hair", "brows", "lashes"] as const;
+export type Group = (typeof GROUPS)[number];
+type TexSet = { map?: string; normalMap?: string };
+type VariantData = {
+  vertexCount: number; indexCount: number; bboxMin: V3; bboxMax: V3; bind: number[]; measure: BodyMeasure;
+  pods: Record<string, number>; groups: { name: Group; start: number; count: number }[]; textures: Partial<Record<Group, TexSet>>;
+};
+type Meta = { bones: string[]; parents: number[]; variants: Record<string, VariantData> };
 export type Variant = "lifter" | "long" | "short";
+export type BodyTextures = Partial<Record<Group, { map?: THREE.Texture; normalMap?: THREE.Texture }>>;
+export type BodyData = { meta: Meta; buf: ArrayBuffer; variant: Variant; tex: BodyTextures };
 
-const base = "/models/";
 let metaP: Promise<Meta> | null = null;
-let topoP: Promise<ArrayBuffer> | null = null;
-let attrP: Promise<ArrayBuffer> | null = null;
-const shapeP = new Map<Variant, Promise<ArrayBuffer>>();
 
-export type BodyData = { meta: Meta; topo: ArrayBuffer; attrs: ArrayBuffer; shape: ArrayBuffer; variant: Variant };
-
-/** Fetches (once) the shared topology and the variant's shape. */
-export function loadBody(variant: Variant): Promise<BodyData> {
-  metaP ??= fetch(base + "body.json").then((r) => r.json());
-  topoP ??= fetch(base + "body-topology.bin").then((r) => r.arrayBuffer());
-  attrP ??= fetch(base + "body-attrs.bin").then((r) => r.arrayBuffer());
-  if (!shapeP.has(variant)) shapeP.set(variant, fetch(base + `body-${variant}.bin`).then((r) => r.arrayBuffer()));
-  return Promise.all([metaP, topoP, attrP, shapeP.get(variant)!]).then(([meta, topo, attrs, shape]) => ({ meta, topo, attrs, shape, variant }));
+/** Fetches the variant's mesh (one file) and its textures (real skin, eyes, hair… all CC0). */
+async function loadBody(variant: Variant): Promise<BodyData> {
+  metaP ??= fetch("/models/figure.json").then((r) => r.json());
+  const [meta, buf] = await Promise.all([metaP, fetch(`/models/figure-${variant}.bin`).then((r) => r.arrayBuffer())]);
+  const tex: BodyTextures = {};
+  await Promise.all(Object.entries(meta.variants[variant].textures).map(async ([g, set]) => {
+    const [map, normalMap] = await Promise.all([
+      set?.map ? texture(set.map) : undefined,
+      set?.normalMap ? texture(set.normalMap, { srgb: false }) : undefined,
+    ]);
+    tex[g as Group] = { map, normalMap };
+  }));
+  return { meta, buf, variant, tex };
 }
 
-/** A stable promise per variant, for React's use(). */
-const resources = new Map<Variant, Promise<BodyData>>();
+/** A stable promise per variant, for React's use(); preload it before mounting a scene. */
+const resources = new Map<Variant, Resource<BodyData>>();
 export function bodyResource(variant: Variant) {
-  if (!resources.has(variant)) resources.set(variant, loadBody(variant));
+  if (!resources.has(variant)) resources.set(variant, resource(loadBody(variant)));
   return resources.get(variant)!;
 }
 
-/** Builds a shared geometry (positions, normals, indices, skin) for a variant. Cached. */
+/** Builds the variant's skinned geometry: positions, normals, UVs, skin, garment seams, material groups. Cached. */
 const geoCache = new Map<Variant, THREE.BufferGeometry>();
 function geometry(d: BodyData) {
   const hit = geoCache.get(d.variant);
   if (hit) return hit;
-  const { meta, topo, shape } = d;
-  const v = meta.variants[d.variant];
-  const n = meta.vertexCount, t = meta.triangleCount;
-  const idx = new Uint16Array(topo, 0, t * 3);
-  const skinI = new Uint8Array(topo, t * 6, n * 4);
-  const skinW = new Uint8Array(topo, t * 6 + n * 4, n * 4);
-  const q = new Int16Array(shape);
+  const v = d.meta.variants[d.variant];
+  const n = v.vertexCount, m = v.indexCount, b = d.buf;
+  let o = 0;
+  const idx = new Uint16Array(b, o, m); o += m * 2;
+  const q = new Int16Array(b, o, n * 3); o += n * 6;
+  const uv = new Uint16Array(b, o, n * 2); o += n * 4;
+  const nrm = new Int8Array(b, o, n * 3); o += n * 3;
+  const skinI = new Uint8Array(b, o, n * 4); o += n * 4;
+  const skinW = new Uint8Array(b, o, n * 4); o += n * 4;
+  const sm = new Int8Array(b, o, n * 2);
   const pos = new Float32Array(n * 3);
   for (let i = 0; i < n * 3; i++) {
     const a = i % 3;
     pos[i] = v.bboxMin[a] + ((q[i] + 32767) / 65534) * (v.bboxMax[a] - v.bboxMin[a]);
   }
+  const seam = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) { seam[i * 2] = sm[i * 2] / 127; seam[i * 2 + 1] = sm[i * 2 + 1] / 100; }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  // garment structure (see export_body.py · write_attrs): region per vertex, seam fields
-  const region = new Uint8Array(d.attrs, 0, n);
-  const sx = new Int8Array(d.attrs, n, n), sy = new Int8Array(d.attrs, n * 2, n);
-  const seam = new Float32Array(n * 2);
-  for (let i = 0; i < n; i++) { seam[i * 2] = sx[i] / 127; seam[i * 2 + 1] = sy[i] / 100; }
+  g.setAttribute("normal", new THREE.BufferAttribute(new Int8Array(nrm), 3, true));
+  g.setAttribute("uv", new THREE.BufferAttribute(new Uint16Array(uv), 2, true));
   g.setAttribute("aSeam", new THREE.BufferAttribute(seam, 2));
-  // triangles grouped by region (majority vote) so suit, skin and shoes get crisp boundaries
-  const byRegion: number[][] = [[], [], []];
-  for (let f = 0; f < t; f++) {
-    const a = region[idx[f * 3]], b = region[idx[f * 3 + 1]], c = region[idx[f * 3 + 2]];
-    const r = a === b || a === c ? a : b === c ? b : Math.min(a, b, c);
-    byRegion[r].push(idx[f * 3], idx[f * 3 + 1], idx[f * 3 + 2]);
-  }
-  const sorted = new Uint16Array(t * 3);
-  let o = 0;
-  byRegion.forEach((list, r) => { sorted.set(list, o); g.addGroup(o, list.length, r); o += list.length; });
-  g.setIndex(new THREE.BufferAttribute(sorted, 1));
   g.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(Uint16Array.from(skinI), 4));
   g.setAttribute("skinWeight", new THREE.BufferAttribute(new Float32Array(skinW).map((w) => w / 255), 4));
-  g.computeVertexNormals();
+  g.setIndex(new THREE.BufferAttribute(new Uint16Array(idx), 1));
+  for (const grp of v.groups) g.addGroup(grp.start, grp.count, GROUPS.indexOf(grp.name));
   g.computeBoundingSphere();
   geoCache.set(d.variant, g);
   return g;
@@ -331,24 +333,27 @@ function podJoint(n: NodeName, r: Rig): THREE.Vector3 {
 
 // ── materials ─────────────────────────────────────────────────────────────────────────
 
-/** The compression suit: matte knit with a soft sheen, flatlock seams drawn as anti-aliased iso-lines. */
-export function suitMaterial(tone: "gym" | "lab" = "gym") {
+/** Hair colour per lifter, multiplied over the MakeHuman hair texture. */
+const HAIR_TINT: Record<Variant, string> = { lifter: "#2f2622", long: "#a58566", short: "#3d2c24" };
+
+/** The compression suit: a real knit (ambientCG Fabric062) — heathered colour, weave relief, fabric
+ *  roughness — with a soft sheen, and flatlock seams drawn as anti-aliased iso-lines. */
+export function suitMaterial(gym: GymTextures, tone: "gym" | "lab" = "lab") {
+  const knit = tiled(gym.fabric, 34, 34);
   const m = new THREE.MeshPhysicalMaterial({
-    color: tone === "gym" ? "#1f1d1a" : "#262420",
-    roughness: 0.7,
-    metalness: 0,
-    sheen: 0.3,
-    sheenRoughness: 0.5,
-    sheenColor: new THREE.Color(tone === "gym" ? "#8f897f" : "#77716a"),
+    color: tone === "gym" ? "#34312d" : "#3e3a35",
+    map: knit.color, normalMap: knit.normal, normalScale: new THREE.Vector2(0.6, 0.6),
+    roughnessMap: knit.orm, roughness: 1, aoMap: knit.orm, aoMapIntensity: 0.7,
+    metalness: 0, sheen: 0.5, sheenRoughness: 0.45, sheenColor: new THREE.Color("#8f897f"),
   });
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.uSeam = { value: new THREE.Color(tone === "gym" ? "#4a463f" : "#55504a") };
+    sh.uniforms.uSeam = { value: new THREE.Color(tone === "gym" ? "#4a463f" : "#5d5851") };
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nattribute vec2 aSeam;\nvarying vec2 vSeam;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvSeam = aSeam;");
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <common>", "#include <common>\nuniform vec3 uSeam;\nvarying vec2 vSeam;")
-      .replace("#include <color_fragment>", `#include <color_fragment>
+      .replace("#include <map_fragment>", `#include <map_fragment>
         float wx = fwidth(vSeam.x), wy = fwidth(vSeam.y);
         float lx = 1.0 - smoothstep(wx * 0.5, wx * 1.4, abs(vSeam.x));
         float ly = 1.0 - smoothstep(wy * 0.5, wy * 1.4, abs(vSeam.y));
@@ -357,17 +362,35 @@ export function suitMaterial(tone: "gym" | "lab" = "gym") {
   return m;
 }
 
-/** Bare head, neck and hands: a matte, sculptural finish so the suit reads as something worn. */
-export function skinMaterial(tone: "gym" | "lab" = "gym") {
-  return new THREE.MeshStandardMaterial({ color: tone === "gym" ? "#514a42" : "#5a5249", roughness: 0.78, metalness: 0 });
-}
-export function shoeMaterial() {
-  return new THREE.MeshStandardMaterial({ color: "#141311", roughness: 0.55, metalness: 0 });
+/** Bare head, neck and hands: the MakeHuman skin texture, with a soft warm sheen at grazing angles. */
+export function skinMaterial(tex: BodyTextures) {
+  return new THREE.MeshPhysicalMaterial({
+    map: tex.skin?.map, roughness: 0.5, metalness: 0, specularIntensity: 0.55,
+    sheen: 0.3, sheenRoughness: 0.5, sheenColor: new THREE.Color("#ffb59c"),
+  });
 }
 
-/** The three materials a body uses, in region order: suit, skin, shoe. */
-export function bodyMaterials(tone: "gym" | "lab" = "gym"): THREE.Material[] {
-  return [suitMaterial(tone), skinMaterial(tone), shoeMaterial()];
+/** Every material a body uses, in group order (see GROUPS). */
+export function bodyMaterials(d: BodyData, gym: GymTextures, tone: "gym" | "lab" = "lab"): THREE.Material[] {
+  const t = d.tex;
+  const strands = (map: THREE.Texture | undefined, color: string, alphaTest: number) => new THREE.MeshStandardMaterial({
+    map, color, alphaTest, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 0.6, metalness: 0,
+  });
+  return [
+    suitMaterial(gym, tone),
+    skinMaterial(t),
+    new THREE.MeshPhysicalMaterial({ map: t.eyes?.map, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.04 }),
+    new THREE.MeshStandardMaterial({ map: t.shoes?.map, normalMap: t.shoes?.normalMap, roughness: 0.62, metalness: 0 }),
+    strands(t.hair?.map, HAIR_TINT[d.variant], 0.4),
+    strands(t.brows?.map, "#3a2e28", 0.3),
+    strands(t.lashes?.map, "#1c1715", 0.3),
+  ];
+}
+
+/** The ghost draws the body's surface only: no eyes, hair or trainers. */
+export function ghostMaterials(ghost: THREE.Material): THREE.Material[] {
+  const none = new THREE.MeshBasicMaterial({ visible: false });
+  return GROUPS.map((g) => (g === "suit" || g === "skin" ? ghost : none));
 }
 
 /** "Your normal": fresnel edges only, skinned, so it reads as an outline you can see the lift through. */

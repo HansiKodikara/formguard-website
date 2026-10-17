@@ -40,7 +40,11 @@ for (const [w, h] of sizes) {
   await p.evaluate(() => document.fonts.ready);
   await p.waitForTimeout(wait);
   if (sel) {
-    await p.locator(sel).first().screenshot({ path: `${out}-${w}.png` });
+    const loc = p.locator(sel).first();
+    await loc.scrollIntoViewIfNeeded();
+    await p.waitForTimeout(+opt("settle", "6000"));   // lazy 3D mounts when near the viewport
+    if (has("nohead")) await p.addStyleTag({ content: "header{visibility:hidden !important}" });
+    await loc.screenshot({ path: `${out}-${w}.png` });
   } else if (at) {
     for (const y of at.split(",").map(Number)) {
       await p.evaluate((yy) => window.scrollTo(0, yy), y);

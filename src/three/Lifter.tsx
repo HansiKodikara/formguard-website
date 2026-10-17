@@ -3,7 +3,8 @@ import { use, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { fromBody, makeRig, type Proportions, type Rig } from "./rig";
-import { Body, bodyMaterials, bodyResource, ghostMaterial, type Variant } from "./body";
+import { Body, bodyMaterials, bodyResource, ghostMaterial, ghostMaterials, type Variant } from "./body";
+import { gymTextures } from "./textures";
 import { barbell, type Barbell } from "./props";
 import { BarTrace, Ripple, Skeleton } from "./Overlays";
 
@@ -21,19 +22,20 @@ export function Lifter({ variant = "lifter", tone = "gym", script, bar = "olympi
   position?: [number, number, number]; frozenT?: number; onFrame?: (f: Frame) => void;
 }) {
   const data = use(bodyResource(variant));
+  const gym = use(gymTextures());
   const { camera, size } = useThree();
   const f = useMemo<Frame>(() => {
     const P = fromBody(data.meta.variants[variant].measure);
-    const fig = new Body(data, bodyMaterials(tone));
+    const fig = new Body(data, bodyMaterials(data, gym, tone));
     const gm = ghostMaterial(tone === "gym" ? "#f2ede4" : "#1b1a17", 0.55, tone === "gym");
-    const ghostFig = new Body(data, [gm, gm, gm], { pods: false, castShadow: false });
+    const ghostFig = new Body(data, ghostMaterials(gm), { pods: false, castShadow: false });
     ghostFig.mesh.renderOrder = 5;
     return {
       t: 0, dt: 0, P, rig: makeRig(), ghost: makeRig(), fig, ghostFig,
-      bar: barbell(bar), skeleton: new Skeleton(1.6, tone === "lab"), trace: new BarTrace(tone === "gym" ? "#f2ede4" : "#1b1a17"),
+      bar: barbell(gym, bar), skeleton: new Skeleton(1.6, tone === "lab"), trace: new BarTrace(tone === "gym" ? "#f2ede4" : "#1b1a17"),
       ripple: new Ripple(), ghostOpacity: 0, barVisible: true, traceFrom: null,
     };
-  }, [data, variant, tone, bar]);
+  }, [data, gym, variant, tone, bar]);
   const scriptRef = useRef(script);
   scriptRef.current = script;
   useEffect(() => () => { for (const m of [f.fig.mesh.material, f.ghostFig.mesh.material].flat()) (m as THREE.Material).dispose(); }, [f]);

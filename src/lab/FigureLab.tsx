@@ -1,12 +1,11 @@
 /** Dev-only test bench for the 3D lifter. /lab/figure.html?lift=squat&env=gym&cam=front34&overlay=1&ghost=1&t=1.6 */
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useMemo } from "react";
+import { Suspense } from "react";
 import { bench, curl, squat } from "../three/rig";
 import { breath, benchPress, curlFlex, repAt, squatDepth, valgusCurve } from "../three/lifts";
 import { CameraRig, Lifter, type Script } from "../three/Lifter";
-import { Gym, Lab } from "../three/World";
+import { Bench, Gym, Lab } from "../three/World";
 import { NODES, type Variant } from "../three/body";
-import { benchModel } from "../three/props";
 
 const CAMS: Record<string, { pos: [number, number, number]; target: [number, number, number]; fov: number }> = {
   front34: { pos: [2.3, 1.35, 4.3], target: [0, 0.92, 0], fov: 28 },
@@ -30,7 +29,6 @@ export function FigureLab() {
   const ghost = q.get("ghost") === "1";
   const frozen = q.has("t") ? Number(q.get("t")) : undefined;
   const variant = (q.get("body") ?? "lifter") as Variant;
-  const benchObj = useMemo(() => (lift === "bench" ? benchModel() : null), [lift]);
 
   const script: Script = (f) => {
     const t = f.t;
@@ -71,9 +69,9 @@ export function FigureLab() {
   return (
     <div style={{ position: "fixed", inset: 0, background: env === "gym" ? "#1b1a17" : "#f2ede4" }}>
       <Canvas shadows dpr={[1, 1.75]} gl={{ antialias: true, alpha: true }} camera={{ fov: cam.fov, near: 0.1, far: 60, position: cam.pos }}>
-        {env === "gym" ? <Gym showRack={lift !== "bench"} /> : <Lab platformOn={q.get("platform") === "1"} />}
-        {benchObj && <primitive object={benchObj} />}
         <Suspense fallback={null}>
+          {env === "gym" ? <Gym showRack={lift !== "bench"} /> : <Lab platformOn={q.get("platform") === "1"} />}
+          {lift === "bench" && <Bench light={env !== "gym"} />}
           <Lifter variant={variant} tone={env === "gym" ? "gym" : "lab"} script={script} bar={lift === "curl" ? "curl" : "olympic"} frozenT={frozen} />
         </Suspense>
         <CameraRig pos={cam.pos} target={cam.target} fov={cam.fov} />

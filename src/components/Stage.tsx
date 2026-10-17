@@ -7,6 +7,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentTyp
 
 export type SceneProps = { active: boolean };
 
+
 export function Stage<P extends object>({
   load, props, live, still, alt, className = "", fadeIn = true,
 }: {
@@ -39,7 +40,7 @@ export function Stage<P extends object>({
   }, [near]);
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={ref} className={/\b(absolute|fixed|sticky)\b/.test(className) ? className : `relative ${className}`}>
       {still && (!live || !shown) && (
         <img src={still} alt={alt} className="absolute inset-0 h-full w-full object-cover" decoding="async" loading="lazy" />
       )}

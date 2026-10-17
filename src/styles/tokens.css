@@ -21,6 +21,7 @@
   --color-stone-4: #9a948a;       /* muted text on Iron (5.8:1) */
   --color-chalk-3: #d6cfc1;       /* rules on Chalk */
   --color-chalk-2: #e7e1d5;       /* raised surface on Chalk */
+  --color-bone: #e8e1d3;          /* second light surface: alternates with Chalk */
 
   /* ── type ─────────────────────────────────────────────────────── */
   --font-display: "FG Display", "FG Display Fallback", Arial, sans-serif;  /* Hubot Sans, renamed subset */

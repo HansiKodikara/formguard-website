@@ -18,7 +18,7 @@ export const BONES: [Joint, Joint][] = [
   ["hipL", "kneeL"], ["kneeL", "ankleL"], ["hipR", "kneeR"], ["kneeR", "ankleR"],
   ["ankleL", "toeL"], ["ankleR", "toeR"],
 ];
-export const MARKERS: Joint[] = ["head", "chest", "pelvis", "shoulderL", "shoulderR", "elbowL", "elbowR", "wristL", "wristR", "hipL", "hipR", "kneeL", "kneeR", "ankleL", "ankleR"];
+export const MARKERS: Joint[] = ["chest", "pelvis", "shoulderL", "shoulderR", "elbowL", "elbowR", "wristL", "wristR", "hipL", "hipR", "kneeL", "kneeR", "ankleL", "ankleR"];
 
 const CHALK = new THREE.Color("#f2ede4"), RED = new THREE.Color("#e2372c"), GREEN = new THREE.Color("#4fc193"), GREY = new THREE.Color("#6f6a60");
 

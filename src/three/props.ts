@@ -1,12 +1,46 @@
-/** The gym: bar, plates, platform, rack, bench, lamp, chalk dust, light. Plain three.js, shared by every scene. */
+/**
+ * The gym: bar, plates, platform, rack, bench, lamp, chalk dust, light. Plain three.js, shared by every
+ * scene. Surfaces use real, scanned CC0 texture sets (ambientCG), mapped at their true physical size.
+ */
 import * as THREE from "three";
 import { BENCH } from "./rig";
+import { pbr, tiled, type GymTextures } from "./textures";
+
+/** UVs in metres (÷ tile): a box face takes the two axes it spans, so textures never stretch. */
+function boxUVs(g: THREE.BufferGeometry, tile: number) {
+  const p = g.attributes.position, n = g.attributes.normal, uv = g.attributes.uv;
+  for (let i = 0; i < p.count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i));
+    const [u, v] = ax > 0.5 ? [p.getZ(i), p.getY(i)] : ay > 0.5 ? [p.getX(i), p.getZ(i)] : [p.getX(i), p.getY(i)];
+    uv.setXY(i, u / tile, v / tile);
+  }
+  uv.needsUpdate = true;
+  return g;
+}
+/** Lathe/cylinder UVs (u around, v along) scaled to metres. */
+function roundUVs(g: THREE.BufferGeometry, around: number, along: number, tile: number) {
+  const uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * around) / tile, (uv.getY(i) * along) / tile);
+  uv.needsUpdate = true;
+  return g;
+}
 
 export const MAT = {
-  rubber: () => new THREE.MeshStandardMaterial({ color: "#141311", roughness: 0.88, metalness: 0 }),
-  steel: () => new THREE.MeshStandardMaterial({ color: "#b8b4aa", roughness: 0.3, metalness: 1 }),
-  knurl: () => new THREE.MeshStandardMaterial({ color: "#8f8b83", roughness: 0.55, metalness: 1 }),
-  frame: () => new THREE.MeshStandardMaterial({ color: "#2a2926", roughness: 0.55, metalness: 0.55 }),
+  /** bumper plates: matte black rubber (ambientCG Rubber004) */
+  rubber: (g: GymTextures) => pbr(g.plate, { color: "#4a4744", normalStrength: 0.5 }),
+  /** sleeves and collars: brushed steel (Metal009) */
+  steel: (g: GymTextures) => pbr(g.steel, { color: "#e9e6df", roughness: 0.62, normalStrength: 0.4 }),
+  /** the shaft: the same steel, knurled */
+  knurl: (g: GymTextures) => {
+    const m = pbr(g.steel, { color: "#b9b5ad", roughness: 1.15 });
+    m.normalMap = g.knurl;
+    m.normalScale.set(0.9, 0.9);
+    return m;
+  },
+  /** rack and bench frames: powder-coated steel, a thin clear coat over the paint */
+  frame: (light = false) => new THREE.MeshPhysicalMaterial({
+    color: light ? "#8f8a82" : "#2a2926", roughness: 0.5, metalness: 0.15, clearcoat: 0.35, clearcoatRoughness: 0.45,
+  }),
 };
 
 /** Lathe a profile (x = radius, y = axial) and turn its axis onto X. */
@@ -23,23 +57,25 @@ function plateGeometry(R = 0.225, t = 0.062) {
   for (let i = 1; i <= 6; i++) { const a = -Math.PI / 2 + (i / 6) * (Math.PI / 2); pts.push([R - e + e * Math.cos(a), -t / 2 + e + e * Math.sin(a)]); }
   for (let i = 0; i <= 6; i++) { const a = (i / 6) * (Math.PI / 2); pts.push([R - e + e * Math.cos(a), t / 2 - e + e * Math.sin(a)]); }
   pts.push([0.026, t / 2]);
-  return latheX(pts);
+  return roundUVs(latheX(pts), 2 * Math.PI * R, 2 * R + t, 0.3);
 }
 
 export type Barbell = { group: THREE.Group; set(a: THREE.Vector3, b: THREE.Vector3): void };
 
 /** Olympic bar (2.2 m) with two bumpers a side, or a short curl bar with small plates. */
-export function barbell(kind: "olympic" | "curl" = "olympic"): Barbell {
+export function barbell(gym: GymTextures, kind: "olympic" | "curl" = "olympic"): Barbell {
   const group = new THREE.Group();
-  const steel = MAT.steel(), rubber = MAT.rubber(), knurl = MAT.knurl();
+  const steel = MAT.steel(gym), rubber = MAT.rubber(gym), knurl = MAT.knurl(gym);
   const len = kind === "olympic" ? 2.2 : 1.24;
   const inner = kind === "olympic" ? 0.655 : 0.33;
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.0145, 0.0145, inner * 2, 24).rotateZ(Math.PI / 2), knurl);
+  const shaftGeo = roundUVs(new THREE.CylinderGeometry(0.0145, 0.0145, inner * 2, 24), 2 * Math.PI * 0.0145, inner * 2, 0.012);
+  const shaft = new THREE.Mesh(shaftGeo.rotateZ(Math.PI / 2), knurl);
   group.add(shaft);
   for (const s of [1, -1]) {
-    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, len / 2 - inner, 32).rotateZ(Math.PI / 2), steel);
-    sleeve.position.x = s * (inner + (len / 2 - inner) / 2);
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.03, 32).rotateZ(Math.PI / 2), steel);
+    const sleeveLen = len / 2 - inner;
+    const sleeve = new THREE.Mesh(roundUVs(new THREE.CylinderGeometry(0.025, 0.025, sleeveLen, 32), 2 * Math.PI * 0.025, sleeveLen, 0.4).rotateZ(Math.PI / 2), steel);
+    sleeve.position.x = s * (inner + sleeveLen / 2);
+    const collar = new THREE.Mesh(roundUVs(new THREE.CylinderGeometry(0.036, 0.036, 0.03, 32), 2 * Math.PI * 0.036, 0.03, 0.4).rotateZ(Math.PI / 2), steel);
     collar.position.x = s * (inner + 0.015);
     group.add(sleeve, collar);
     const plates = kind === "olympic" ? [[0.225, 0.062], [0.225, 0.062]] : [[0.13, 0.03], [0.11, 0.024]];
@@ -49,7 +85,6 @@ export function barbell(kind: "olympic" | "curl" = "olympic"): Barbell {
       p.position.x = s * (x + t / 2);
       const hub = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.36, R * 0.36, t + 0.004, 40, 1, true).rotateZ(Math.PI / 2), steel);
       hub.position.copy(p.position);
-      p.castShadow = p.receiveShadow = true;
       group.add(p, hub);
       x += t + 0.003;
     }
@@ -65,15 +100,16 @@ export function barbell(kind: "olympic" | "curl" = "olympic"): Barbell {
   };
 }
 
-/** Olympic platform: oak centre strip (where the lifter stands), rubber sides (where plates land). */
-export function platform(tone: "gym" | "lab") {
+/** Olympic platform: oak centre (where the lifter stands), rubber sides (where plates land). */
+export function platform(gym: GymTextures, tone: "gym" | "lab") {
   const g = new THREE.Group();
   const H = 0.045, S = 2.44, W = 1.22;
-  const tex = woodTexture(tone);
-  const wood = new THREE.Mesh(new THREE.BoxGeometry(W, H, S), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.68, metalness: 0 }));
+  const wood = new THREE.Mesh(boxUVs(new THREE.BoxGeometry(W, H, S), 1.6),
+    pbr(tiled(gym.wood, 1, 1, Math.PI / 2), { color: tone === "gym" ? "#6f6253" : "#fff6ea", roughness: 1.15, normalStrength: 0.6 }));
   wood.position.y = H / 2;
-  const rubberMat = new THREE.MeshStandardMaterial({ color: tone === "gym" ? "#161513" : "#2c2a26", roughness: 0.93 });
-  const left = new THREE.Mesh(new THREE.BoxGeometry((S - W) / 2, H, S), rubberMat);
+  const rubberMat = pbr(gym.rubber, { color: tone === "gym" ? "#8a8683" : "#ffffff", normalStrength: 0.7 });
+  const side = boxUVs(new THREE.BoxGeometry((S - W) / 2, H, S), 0.7);
+  const left = new THREE.Mesh(side, rubberMat);
   left.position.set(W / 2 + (S - W) / 4, H / 2, 0);
   const right = left.clone();
   right.position.x *= -1;
@@ -82,46 +118,20 @@ export function platform(tone: "gym" | "lab") {
   return g;
 }
 
-function woodTexture(tone: "gym" | "lab") {
-  const c = document.createElement("canvas");
-  c.width = 512; c.height = 1024;
-  const x = c.getContext("2d")!;
-  const base = tone === "gym" ? [66, 56, 45] : [178, 156, 124];
-  const planks = 8;
-  for (let i = 0; i < planks; i++) {
-    const v = (Math.sin(i * 12.9898) * 43758.5453) % 1;
-    const k = 0.9 + 0.12 * Math.abs(v);
-    x.fillStyle = `rgb(${base.map((b) => Math.round(b * k)).join(",")})`;
-    x.fillRect((i * 512) / planks, 0, 512 / planks, 1024);
-    // grain: long faint streaks
-    for (let s = 0; s < 26; s++) {
-      x.strokeStyle = `rgba(0,0,0,${0.035 + 0.04 * Math.random()})`;
-      x.lineWidth = 1 + Math.random() * 1.5;
-      const px = (i * 512) / planks + Math.random() * (512 / planks);
-      x.beginPath(); x.moveTo(px, 0); x.bezierCurveTo(px + 6, 300, px - 6, 700, px + 3, 1024); x.stroke();
-    }
-    x.fillStyle = "rgba(0,0,0,0.35)";
-    x.fillRect((i * 512) / planks, 0, 2, 1024);
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
-}
-
 /** Power rack (the logo's own anatomy): uprights, J-hooks, safety arms. */
-export function rack() {
+export function rack(light = false) {
   const g = new THREE.Group();
-  const m = MAT.frame();
+  const m = MAT.frame(light);
   const up = new THREE.BoxGeometry(0.076, 2.3, 0.076);
   const W = 1.22, D = 1.1;
+  const holeMat = new THREE.MeshBasicMaterial({ color: light ? "#4a4741" : "#050505" });
   for (const x of [-W / 2, W / 2]) for (const z of [0, -D]) {
     const u = new THREE.Mesh(up, m);
     u.position.set(x, 1.15, z);
     g.add(u);
     // holes: a dark column on the inner face
     for (let k = 0; k < 26; k++) {
-      const h = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.024, 0.024), new THREE.MeshBasicMaterial({ color: "#050505" }));
+      const h = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.024, 0.024), holeMat);
       h.position.set(x - Math.sign(x) * 0.039, 0.42 + k * 0.064, z);
       g.add(h);
     }
@@ -147,11 +157,13 @@ export function rack() {
   return g;
 }
 
-export function benchModel() {
+/** Flat bench: a leather pad (ambientCG Leather026) on a powder-coated frame. */
+export function benchModel(gym: GymTextures, light = false) {
   const g = new THREE.Group();
-  const pad = new THREE.Mesh(new THREE.BoxGeometry(BENCH.width, 0.07, BENCH.length), new THREE.MeshStandardMaterial({ color: "#1d1c19", roughness: 0.78 }));
+  const padGeo = boxUVs(new THREE.BoxGeometry(BENCH.width, 0.07, BENCH.length), 0.5);
+  const pad = new THREE.Mesh(padGeo, pbr(gym.leather, { color: "#ffffff", roughness: 1.3, normalStrength: 0.8 }));
   pad.position.set(0, BENCH.top - 0.035, (BENCH.z0 + BENCH.z1) / 2);
-  const frameM = MAT.frame();
+  const frameM = MAT.frame(light);
   const beam = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, BENCH.length - 0.1), frameM);
   beam.position.set(0, BENCH.top - 0.11, pad.position.z);
   g.add(pad, beam);

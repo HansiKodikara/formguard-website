@@ -1,10 +1,20 @@
-import { Logo } from "./components/Logo";
+import { Header } from "./components/Header";
+import { Hero } from "./sections/Hero";
+import { Problem } from "./sections/Problem";
+import { HowItWorks } from "./sections/HowItWorks";
+import { useCaps } from "./lib/env";
 
 export function App() {
+  const caps = useCaps();
   return (
-    <main className="surface-iron grain min-h-screen wrap py-24">
-      <Logo tone="reversed" height={32} />
-      <h1 className="t-display text-h1 mt-16 uppercase">Coaching,<br />without the coach.</h1>
-    </main>
+    <>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:bg-chalk focus:px-4 focus:py-2 focus:text-iron">Skip to content</a>
+      <Header />
+      <main id="main">
+        <Hero caps={caps} />
+        <Problem caps={caps} />
+        <HowItWorks caps={caps} />
+      </main>
+    </>
   );
 }

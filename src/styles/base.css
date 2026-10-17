@@ -53,6 +53,8 @@ body {
 /* ── surfaces & textures ────────────────────────────────────────────────────────────── */
 .surface-iron { background: var(--color-iron); color: var(--color-chalk); }
 .surface-chalk { background: var(--color-chalk); color: var(--color-iron); }
+.surface-bone { background: var(--color-bone); color: var(--color-iron); }
+.surface-red { background: var(--color-red); color: var(--color-chalk); }
 
 /* grain sits above the background, under content; never intercepts input */
 .grain { position: relative; isolation: isolate; }
@@ -79,18 +81,28 @@ body {
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 /* semantic colours per surface — components read these, so they work on Chalk and on Iron */
-.surface-iron, .surface-chalk { color: var(--fg); }
+.surface-iron, .surface-chalk, .surface-bone, .surface-red { color: var(--fg); }
 .surface-iron {
   --fg: var(--color-chalk); --muted: var(--color-stone-4); --rule: var(--color-iron-3); --rule-strong: var(--color-iron-4);
   --field-bg: var(--color-iron-2); --field-border: var(--color-stone-4);
   --flag: var(--color-red-on-dark); --flag-mark: var(--color-red); --good: var(--color-go-on-dark);
   --bg: var(--color-iron);
 }
-.surface-chalk {
+.surface-chalk, .surface-bone {
   --fg: var(--color-iron); --muted: var(--color-stone-6); --rule: var(--color-chalk-3); --rule-strong: #bdb5a6;
   --field-bg: #f8f5ef; --field-border: var(--color-stone-6);
   --flag: var(--color-red); --flag-mark: var(--color-red); --good: var(--color-go);
   --bg: var(--color-chalk);
 }
+.surface-bone { --bg: var(--color-bone); --rule: #d3cabb; --muted: #645f57; }
+.surface-red {
+  --fg: var(--color-chalk); --muted: #f2ede4cc; --rule: #f2ede440; --rule-strong: #f2ede480;
+  --field-bg: #b0261e; --field-border: var(--color-chalk);
+  --flag: var(--color-chalk); --flag-mark: var(--color-chalk); --good: var(--color-chalk);
+  --bg: var(--color-red);
+}
+.surface-bone.grain::before, .surface-chalk.grain::before { background-image: url("/textures/chalk-grain.png"); }
+.surface-red.grain::before { background-image: url("/textures/film-grain.png"); mix-blend-mode: soft-light; opacity: 0.18; }
 
 @keyframes fg-wave { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
+@keyframes fg-scroll { 0% { transform: translateY(-100%); } 60%, 100% { transform: translateY(300%); } }
