@@ -13,6 +13,8 @@ sys.path.insert(0, HERE)
 import fg  # noqa: E402
 import wordmark as W  # noqa: E402
 import marks  # noqa: E402
+import refined as RF  # noqa: E402
+import mockups as MK  # noqa: E402
 
 W.FONTS = os.path.join(ROOT, "logo", "fonts")
 
@@ -186,7 +188,7 @@ def page(sections):
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FormGuard logo explorations</title>
-<style>{CSS}</style></head>
+<style>{CSS}{MK.MOCK_CSS}{REFINED_CSS}</style></head>
 <body>
 <div class="wrap">
 <header class="top">
@@ -586,10 +588,274 @@ def section_scorecard():
 </section>"""
 
 
+# ════════════════════════════════════════════════════════ 04 refined
+
+REFINED_CSS = """
+.refined{border-top:2px solid var(--ink);padding:30px 0 40px}
+.rhead{display:grid;grid-template-columns:44px 1fr;gap:4px 14px;margin-bottom:20px}
+.rhead .n{font:800 34px/1 Mona;font-stretch:112%;color:var(--red);grid-row:span 2}
+.rhead h3{font-size:26px}
+.rhead p{margin:4px 0 0;font-size:16px;max-width:80ch}
+.rgrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr);gap:14px}
+.rgrid .sheet{background:#fff;outline:1px solid var(--rule);outline-offset:-1px;padding:6px}
+.rgrid .sheet svg,.rgrid .master svg{width:100%;height:auto;display:block}
+.rgrid .master{display:grid;place-items:center;padding:16%}
+.lk{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;margin-top:14px}
+.lk > div{display:grid;place-items:center;padding:34px 26px;min-height:150px}
+.lk svg{max-width:100%;height:auto}
+.lk .cap{font:500 10.5px ui-monospace,Menlo,monospace;color:var(--mute);justify-self:start;align-self:end;margin-top:10px}
+.lk .on-iron .cap{color:#F2EDE499}
+.pxrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px}
+.pxrow > div{padding:14px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.pxrow canvas{image-rendering:pixelated;display:block}
+.pxrow .lbl{font:500 10.5px/1.3 ui-monospace,Menlo,monospace;color:var(--mute);width:100%}
+.pxrow .on-iron .lbl{color:#F2EDE499}
+.spec{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 30px;margin-top:16px;font-size:13.5px}
+.spec h6{font:700 10.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+.spec ul{margin:0;padding-left:18px}
+.choose{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.choose article{outline:1px solid var(--rule);outline-offset:-1px;display:flex;flex-direction:column}
+.choose article.rec{outline:2px solid var(--ink);outline-offset:-2px}
+.choose .sym{display:grid;place-items:center;padding:34px;background:var(--ink)}
+.choose .sym svg{width:46%;height:auto}
+.choose .lock{padding:22px 20px;display:grid;place-items:center;border-bottom:1px solid var(--rule)}
+.choose .lock svg{max-width:100%;height:auto}
+.choose .txt{padding:18px 20px 22px}
+.choose .txt h3{display:flex;gap:10px;align-items:baseline;margin-bottom:8px}
+.choose .txt p{font-size:14px;margin:0}
+.recbox{margin-top:26px;padding:24px 26px;background:var(--ink);color:var(--chalk)}
+.recbox h3{color:var(--chalk);margin-bottom:10px}
+.recbox p{max-width:96ch;margin:0 0 10px}
+@media (max-width:1100px){.rgrid,.lk,.pxrow,.spec,.choose{grid-template-columns:1fr}}
+"""
+
+ONE_LINERS = {
+    "rack-f": "The F is a power rack holding the bar: the name's first letter, a lifter's tool and a joint in one shape. The most ownable.",
+    "parallel": "The knee at parallel, measured. A precise, instrument-like mark for a brand that sells accuracy.",
+    "cradle": "The bar held, never dropped. The simplest and boldest of the three, built to survive any size.",
+}
+LETTER = {"rack-f": "A", "parallel": "B", "cradle": "C"}
+
+
+def kit(key):
+    m = RF.MARKS[key]()
+    hz = RF.lockup_initial(m) if key == "rack-f" else RF.lockup_horizontal(m, height_ratio=1.6, gap_ratio=0.7)
+    st = RF.lockup_stacked(m, mark_ratio=3.2, gap_ratio=0.8)
+    return {"key": key, "name": m.name, "mark": m, "px16": RF.PX[key](16), "px32": RF.PX[key](32), "hz": hz, "st": st}
+
+
+def _lock_svg(L, ink, accent, width=None, height=None, pad_ratio=0.18):
+    lay = [(L["ink"], ink), (L["accent"], accent), (L["word"], ink)]
+    u = fg.union(L["ink"], L["word"], L["accent"]) if L["accent"] is not None else fg.union(L["ink"], L["word"])
+    b = u.bounds
+    p = L["cap"] * pad_ratio
+    return svg_paths(lay, (b[0] - p, b[1] - p, b[2] + p, b[3] + p), width=width, height=height)
+
+
+def construction_sheet(m):
+    """Grid, construction circles, centres and the key dimensions, drawn from the mark's own dims."""
+    R_, ink = RED, INK
+    x0, y0, x1, y1 = -16, -16, 134, 120
+    grid = []
+    for v in range(0, 101, 10):
+        w = .28 if v % 50 else .45
+        grid.append(f'<line x1="{v}" y1="-4" x2="{v}" y2="104" stroke="{ink}" stroke-opacity=".10" stroke-width="{w}"/>')
+        grid.append(f'<line x1="-4" y1="{v}" x2="104" y2="{v}" stroke="{ink}" stroke-opacity=".10" stroke-width="{w}"/>')
+    body = f'<path d="{fg.d(m.one)}" fill="{ink}" fill-opacity=".09" stroke="{ink}" stroke-width=".42"/>'
+    cons = []
+    for c in m.construction:
+        if c[0] == "circle":
+            cons.append(f'<circle cx="{c[1]:g}" cy="{c[2]:g}" r="{c[3]:g}" fill="none" stroke="{R_}" stroke-width=".32" stroke-dasharray="1.2 1"/>')
+        elif c[0] == "cross":
+            cons.append(f'<path d="M{c[1]-2.2:g} {c[2]:g}h4.4M{c[1]:g} {c[2]-2.2:g}v4.4" stroke="{R_}" stroke-width=".4"/>')
+        elif c[0] == "hline":
+            cons.append(f'<line x1="-4" y1="{c[1]:g}" x2="104" y2="{c[1]:g}" stroke="{R_}" stroke-opacity=".55" stroke-width=".25" stroke-dasharray=".8 .8"/>')
+        elif c[0] == "vline":
+            cons.append(f'<line x1="{c[1]:g}" y1="-4" x2="{c[1]:g}" y2="104" stroke="{R_}" stroke-opacity=".55" stroke-width=".25" stroke-dasharray=".8 .8"/>')
+
+    def t(x, y, s, anchor="middle"):
+        return (f'<text x="{x:g}" y="{y:g}" font-family="ui-monospace,Menlo,monospace" font-size="3.3" '
+                f'fill="{R_}" text-anchor="{anchor}">{html.escape(s)}</text>')
+
+    def dh(xa, xb, y, s):
+        return (f'<path d="M{xa:g} {y:g}H{xb:g}M{xa:g} {y-1.4:g}v2.8M{xb:g} {y-1.4:g}v2.8" stroke="{R_}" stroke-width=".3"/>'
+                + t((xa + xb) / 2, y - 1.6, s))
+
+    def dv(ya, yb, x, s):
+        return (f'<path d="M{x:g} {ya:g}V{yb:g}M{x-1.4:g} {ya:g}h2.8M{x-1.4:g} {yb:g}h2.8" stroke="{R_}" stroke-width=".3"/>'
+                + t(x + 2.2, (ya + yb) / 2 + 1.1, s, "start"))
+
+    def rad(cx, cy, r, ang, s, lx=None, ly=None):
+        ex, ey = fg.pt(cx, cy, r, ang)
+        out = f'<line x1="{cx:g}" y1="{cy:g}" x2="{ex:.2f}" y2="{ey:.2f}" stroke="{R_}" stroke-width=".3"/>'
+        lx = ex if lx is None else lx
+        ly = ey if ly is None else ly
+        return out + t(lx, ly, s)
+
+    d = m.dims
+    ann = []
+    if m.key == "rack-f":
+        cx, cy = d["centre"]
+        ann += [dh(0, d["stem"], 106, f"stem {d['stem']:g}"), dh(0, d["top_arm"], -6, f"J-hook {d['top_arm']:g}"),
+                dh(0, d["mid_arm"], 80, f"safety {d['mid_arm']:g}"),
+                dv(0, d["arm"], 96, f"{d['arm']:g}"), dv(d["arm"], d["mid_arm_y"], 96, f"counter {d['counter']:g}"),
+                dv(d["mid_arm_y"], d["mid_arm_y"] + d["arm"], 96, f"{d['arm']:g}"), dv(d["mid_arm_y"] + d["arm"], 100, 96, f"{100 - d['mid_arm_y'] - d['arm']:g}"),
+                rad(cx, cy, d["socket_r"], 128, f"R {d['socket_r']:g}", cx - 21, cy - 19),
+                rad(cx, cy, d["ball_r"], -38, f"bar r {d['ball_r']:g}", cx + 20, cy + 13),
+                t(cx + 4, cy - d["ball_r"] - 1.3, f"gap {d['gap']:g}", "start")]
+    elif m.key == "parallel":
+        kx, ky = d["knee"]
+        ann += [dh(0, d["shin"], 106, f"shin {d['shin']:g}"), dv(0, d["thigh"], 106, f"thigh {d['thigh']:g}"),
+                rad(kx, ky, d["arc_r_out"], -45, f"r {d['arc_r_in']:g} / {d['arc_r_out']:g}", kx + 50, ky + 54),
+                dv(d["thigh"], d["thigh"] + d["gap"], 60, f"gap {d['gap']:g}"),
+                dh(d["shin"], d["shin"] + d["gap"], 62, ""), t(d["shin"] + 3, 67, f"gap {d['gap']:g}"),
+                t(kx + 15, ky + 16, "90°"), dh(0, 100, -6, "100")]
+    else:
+        cx, cy = d["centre"]
+        ann += [dh(0, d["stroke"], -6, f"stroke {d['stroke']:g}"), dh(80, 100, -6, f"{d['stroke']:g}"),
+                rad(cx, cy, d["bowl_r"], -128, f"R {d['bowl_r']:g}", cx - 33, cy + 44),
+                rad(cx, cy, d["inner_r"], -52, f"r {d['inner_r']:g}", cx + 25, cy + 30),
+                rad(cx, cy, d["ball_r"], 90, f"bar r {d['ball_r']:g}", cx + 9, cy - 21),
+                dh(cx - d["inner_r"], cx - d["ball_r"], cy, ""), t(cx - 25, cy - 2, f"gap {d['gap']:g}")]
+    return (f'<svg viewBox="{x0} {y0} {x1 - x0} {y1 - y0}" xmlns="http://www.w3.org/2000/svg" role="img">'
+            f'<title>{html.escape(m.name)} construction</title>{"".join(grid)}{body}{"".join(cons)}{"".join(ann)}</svg>')
+
+
+def px_tile(p, fill, accent, px, css, two=True):
+    body = (f'<path d="{fg.d(p.ink)}" fill="{fill}"/>' +
+            (f'<path d="{fg.d(p.accent)}" fill="{accent if two else fill}"/>' if p.accent is not None else ""))
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {px} {px}" width="{px}" height="{px}">{body}</svg>'
+    return f'<canvas data-px="{px}" data-svg="{html.escape(svg, quote=True)}" style="width:{css}px;height:{css}px"></canvas>'
+
+
+def refined_card(key):
+    k = kit(key)
+    m = k["mark"]
+    master2 = svg_paths([(m.ink, INK), (m.accent, RED)], square_box(m.one, 0.02))
+    master1 = svg_paths([(m.one, CHALK)], square_box(m.one, 0.02))
+    hz_c = _lock_svg(k["hz"], INK, RED, width=520)
+    hz_i = _lock_svg(k["hz"], CHALK, RED, width=420)
+    st_c = _lock_svg(k["st"], INK, RED, height=190)
+    p16, p32 = k["px16"], k["px32"]
+    pxs = []
+    for fill, cls in ((INK, "on-chalk"), (CHALK, "on-iron")):
+        pxs.append(f'<div class="{cls}">{px_tile(p16, fill, RED, 16, 16)}{px_tile(p32, fill, RED, 32, 16)}{px_tile(p32, fill, RED, 32, 32)}'
+                   f'<div class="lbl">16px cut · 32px cut at 16pt (Retina tab) · 32px cut</div></div>')
+        pxs.append(f'<div class="{cls}">{px_tile(p16, fill, RED, 16, 64)}{raster({"ink": m.ink, "accent": m.accent}, 16, fill, 64)}'
+                   f'<div class="lbl">16px: pixel cut vs master scaled (×4)</div></div>')
+    checks = "".join(f"<li>{'✓' if ok else '✗'} {html.escape(lbl)}: {', '.join(f'{v:.3f}' for v in got) if got else 'clear (no ink)'}</li>"
+                     for lbl, got, exp, ok in m.checks)
+    hz_note = ("Drop-cap lockup: the symbol is the F of FORMGUARD, its stem weight-matched to the wordmark (1.00×) and "
+               "baseline-aligned. The raised J-hook overhangs the O, and the O sits as far from the safety arm as it does from "
+               "a regular F. No repeated F.") if key == "rack-f" else (
+               "Symbol at 1.6× cap height, centred on the caps, gap 0.7 cap. The symbol's stroke is 1.18× the wordmark stem: "
+               "at a strict 1.00× match it reads as an extra letter.")
+    return f"""<article class="refined" id="r-{key}">
+<div class="rhead"><span class="n">{LETTER[key]}</span><h3>{m.name}</h3><p>{ONE_LINERS[key]}</p></div>
+<div class="rgrid"><div class="sheet">{construction_sheet(m)}</div><div class="master on-chalk">{master2}</div><div class="master on-iron">{master1}</div></div>
+<div class="lk"><div class="on-chalk">{hz_c}<span class="cap">Horizontal lockup</span></div><div class="on-chalk">{st_c}<span class="cap">Stacked lockup</span></div></div>
+<div class="lk"><div class="on-iron">{hz_i}<span class="cap">Horizontal, reversed</span></div><div class="on-iron">{_lock_svg(k["st"], CHALK, RED, height=150)}<span class="cap">Stacked, reversed</span></div></div>
+<div class="pxrow">{"".join(pxs)}</div>
+<div class="spec"><div><h6>Construction</h6><p>{spec_text(key, m)}</p><p>{hz_note}</p></div>
+<div><h6>Measured on the final outline</h6><ul class="checks">{checks}</ul></div></div>
+</article>"""
+
+
+def spec_text(key, m):
+    d = m.dims
+    if key == "rack-f":
+        return (f"100-unit height. Stem {d['stem']:g}; arms {d['arm']:g}, lighter by 10% so they look equal to the stem, matching "
+                f"Hubot's own F. Counter {d['counter']:g}. The socket (R {d['socket_r']:g}) is tangent to the stem's inner edge and bites "
+                f"{d['bite']:g} into each arm. The bar (r {d['ball_r']:g}) is concentric, so the gap is {d['gap']:g} everywhere. J-hook "
+                f"{d['top_arm']:g} wide, safety {d['mid_arm']:g} (0.9 of the J-hook, like Hubot's F). Two-colour: only the bar is Plate Red.")
+    if key == "parallel":
+        return (f"100 × 100. Shin {d['shin']:g}, thigh {d['thigh']:g} (horizontal lightened 10% for optical equality). The arc is "
+                f"centred on the knee, the intersection of the limbs' centre-lines, between r {d['arc_r_in']:g} and {d['arc_r_out']:g}. Its "
+                f"ends are cut parallel to the limbs at a constant {d['gap']:g}-unit gap. Symmetric about the 45° diagonal.")
+    return (f"100 × 100. Stroke {d['stroke']:g}; the bowl is a true semicircle (R {d['bowl_r']:g}, r {d['inner_r']:g}). The bar "
+            f"(r {d['ball_r']:g}) is concentric, so the gap is {d['gap']:g} all round. Ratios: bar ⌀ = 2 × stroke, gap = ½ × stroke.")
+
+
+def section_refined():
+    cards = "".join(refined_card(k) for k in ("rack-f", "parallel", "cradle"))
+    fc = W.face(W.FINAL["key"], **W.FINAL["var"])
+    ov, a = W.level_overrides(fc)
+    word, _ = RF.wordmark(100)
+    b = word.bounds
+    lv = fg.rect(b[0] - 6, -a["r_join"] / fc.cap * 100 - 0.35, b[2] - b[0] + 12, 0.7)
+    kern = " · ".join(f"{p} {v:+d}" for p, v in W.FINAL["kern"].items())
+    wm = svg_paths([(word, INK), (lv, RED)], (b[0] - 6, -112, b[2] + 6, 12), width=760)
+    return f"""<section id="refined">{sechead("04", "Refined: the three",
+        "<p>Clean geometry, final weights and kerned lockups. All three share one wordmark: <b>Hubot Sans 760 at width 110</b>, "
+        "tracked +4.5% of cap height and hand-kerned. The F's middle arm and the G's bar are moved onto the R's bowl join, so the word holds "
+        "one level, which is the faint red line below. Each mark comes with pixel-drawn 16px and 32px cuts, because a master scaled down "
+        "to 16px turns to mush. Compare the ×4 tiles.</p>")}
+<div class="on-chalk" style="padding:30px 26px;margin-bottom:10px;display:grid;place-items:center">{wm}</div>
+<p class="mono mute" style="margin-bottom:24px">Kerning on top of the font's own (units/1000 em): {kern} · level line at {a['r_join']:.2f}/{fc.cap:g} of cap height (F arm, R join, G bar measured identical to 0.01 unit)</p>
+{cards}
+</section>"""
+
+
+def section_contexts():
+    kits = [kit(k) for k in ("rack-f", "parallel", "cradle")]
+    def row(title, note, fn):
+        cols = "".join(f'<div><h5>{LETTER[k["key"]]} · {k["name"]}</h5>{fn(k)}</div>' for k in kits)
+        return f'<div class="ctxhead"><h3>{title}</h3><p>{note}</p></div><div class="ctx">{cols}</div>'
+
+    def tab(k):
+        z = (f'<div class="favzoom">{px_tile(k["px16"], INK, RED, 16, 64)}{px_tile(k["px32"], INK, RED, 32, 64)}'
+             f'<span>16px and 32px favicons, ×4 and ×2</span></div>')
+        return MK.browser_tab(k, "light") + '<div style="height:10px"></div>' + MK.browser_tab(k, "dark") + z
+
+    def icon(k):
+        return MK.home_screen(k)
+
+    def suit(k):
+        return f'<div class="suitbox">{MK.suit(k)}</div>'
+
+    def post(k):
+        return f'<div class="posterbox">{MK.poster(k)}</div>'
+
+    heads = "".join(f'<h5 style="margin-top:22px">{LETTER[k["key"]]} · {k["name"]}</h5>{MK.web_header(k)}' for k in kits)
+    return f"""<section id="context">{sechead("05", "In context",
+        "<p>The same five templates for each mark: a browser tab (light and dark, favicon drawn at real pixels), an app icon, the chest "
+        "of a black compression suit (flat, front; one sensor node flagged red), a gym poster, and a website header. Flat and honest: no "
+        "fake photography, no shadows.</p>")}
+{row("Favicon in a browser tab", "Real 16pt tab size. On a Retina screen the browser uses the 32px cut.", tab)}
+{row("App icon", "Home screen at 60pt; the icon at 180, 120 and 60px.", icon)}
+{row("On the suit", "Centre chest, one colour, Chalk on Iron Black. The red dot is a sensor node buzzing at the left elbow.", suit)}
+{row("Gym poster", "A2 portrait, Iron Black. The symbol at full strength, the headline set in Hubot 800.", post)}
+<div class="ctxhead"><h3>Website header</h3><p>Identical page, only the lockup changes.</p></div>{heads}
+</section>"""
+
+
+def section_choose():
+    kits = [kit(k) for k in ("rack-f", "parallel", "cradle")]
+    cards = []
+    for k in kits:
+        m = k["mark"]
+        sym = svg_paths([(m.ink, CHALK), (m.accent, RED)], square_box(m.one, 0.02))
+        lock = _lock_svg(k["hz"], INK, RED, width=330)
+        rec = k["key"] == "rack-f"
+        tag = '<span class="tag lead">Recommended</span>' if rec else ""
+        cards.append(f"""<article class="{'rec' if rec else ''}"><div class="sym">{sym}</div><div class="lock">{lock}</div>
+<div class="txt"><h3>{LETTER[k['key']]} · {m.name} {tag}</h3><p>{ONE_LINERS[k['key']]}</p></div></article>""")
+    return f"""<section id="choose">{sechead("06", "Choose",
+        "<p>Three directions, one wordmark. Pick one, or tell me what to push. Nothing is final until you do.</p>")}
+<div class="choose">{''.join(cards)}</div>
+<div class="recbox"><h3>Recommendation: A, Rack F</h3>
+<p>It's the only one of the three that couldn't belong to another company. It comes from the name's first letter, says "guard" through a
+lifter's own equipment rather than a shield, and has real anatomy: rack, joint, bar. The drop-cap lockup makes the symbol the first letter of the
+wordmark, so mark and word are literally one design. Its pixel cuts hold from a 16px tab to the chest of the suit.</p>
+<p><b>What it asks of us:</b> always use the master artwork (the socket is a precise detail), use the pixel cuts below 48px, and keep red for the bar alone.
+<b>Parallel</b> is the safer, more abstract instrument. <b>Cradle</b> is the most robust but the least ownable.</p></div>
+</section>"""
+
+
 # ════════════════════════════════════════════════════════ main
 
 def main():
-    sections = [section_typefaces(), section_concepts(), section_scorecard()]
+    sections = [section_typefaces(), section_concepts(), section_scorecard(), section_refined(), section_contexts(), section_choose()]
     out = os.path.join(ROOT, "logo-explorations.html")
     with open(out, "w") as f:
         f.write(page(sections))
