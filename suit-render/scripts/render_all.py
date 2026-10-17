@@ -10,7 +10,8 @@ Options (all optional):
     --out /some/folder                     output folder (default: suit-render/FormGuard_Renders)
     --save                                 save the .blend after a --rebuild
 
-Shots: 01_shirt_front, 02_shirt_back, 03_tights_front, 04_tights_back, 05_suit_three_quarter_back
+Shots: 01_shirt_front, 02_shirt_back, 03_tights_front, 04_tights_back, 05_suit_three_quarter_back,
+       06_body_front, 07_body_three_quarter_front, 08_body_back (the suit on the body)
 """
 import bpy, sys, os, time, builtins
 

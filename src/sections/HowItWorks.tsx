@@ -107,7 +107,7 @@ function HowPinned() {
 
         <div className="wrap pointer-events-none relative grid-12 h-full">
           <div className="pointer-events-auto col-span-4 flex h-full flex-col pb-14 pt-[calc(var(--header-h)+3.5rem)]">
-            <Kicker index="02">How it works</Kicker>
+            <Kicker index="03">How it works</Kicker>
             <h2 className="t-head mt-6 text-[clamp(2.25rem,3.4vw,3.75rem)] leading-[0.98]">It learns you, then checks every rep.</h2>
             <ol className="mt-10 border-l border-[var(--line-strong)]">
               {STEPS.map((s, i) => (
@@ -169,7 +169,7 @@ function HowStatic() {
   return (
     <Section id="how" surface="chalk" label="How it works">
       <div className="wrap pb-24 pt-24">
-        <Kicker index="02">How it works</Kicker>
+        <Kicker index="03">How it works</Kicker>
         <h2 className="t-head mt-6 text-h2">It learns you, then checks every rep.</h2>
         <ol className="mt-14 space-y-16">
           {STEPS.map((s, i) => (

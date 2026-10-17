@@ -109,3 +109,4 @@ body {
 
 @keyframes fg-wave { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
 @keyframes fg-scroll { 0% { transform: translateY(-100%); } 60%, 100% { transform: translateY(300%); } }
+@keyframes fg-fade { from { opacity: 0; } to { opacity: 1; } }

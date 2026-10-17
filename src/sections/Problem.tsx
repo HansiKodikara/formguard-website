@@ -14,7 +14,7 @@ export function Problem() {
   return (
     <Section id="problem" surface="raised" label="The problem">
       <div className="wrap pb-28 pt-28 lg:pb-40 lg:pt-40">
-        <Kicker index="01">The problem</Kicker>
+        <Kicker index="02">The problem</Kicker>
 
         {/* beat 1 — the price of a second pair of eyes */}
         <div className="mt-12 grid-12 gap-y-8">
