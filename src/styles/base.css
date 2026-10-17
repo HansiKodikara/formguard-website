@@ -69,6 +69,7 @@ body {
   --signal: var(--color-chalk); --signal-ink: var(--color-chalk); --on-signal: var(--color-red);
 }
 .surface-chalk, .surface-raised, .surface-iron, .surface-red { background: var(--ground); color: var(--ink); }
+
 .surface-iron { color-scheme: dark; }
 
 /* grain sits above the background, under content; never intercepts input */
@@ -97,6 +98,14 @@ body {
 
 .surface-raised.grain::before, .surface-chalk.grain::before { background-image: url("/textures/chalk-grain.png"); }
 .surface-red.grain::before { background-image: url("/textures/film-grain.png"); mix-blend-mode: soft-light; opacity: 0.18; }
+
+/* sliders: a hairline track filled in ink up to the value, a round thumb (round is for dots: it's the joint) */
+.fg-range { appearance: none; -webkit-appearance: none; background: transparent; }
+.fg-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--ink) var(--pct), var(--line-strong) var(--pct)); }
+.fg-range::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--ink) var(--pct), var(--line-strong) var(--pct)); }
+.fg-range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 999px; background: var(--ink); border: 3px solid var(--ground); box-shadow: 0 0 0 1px var(--ink); }
+.fg-range::-moz-range-thumb { width: 16px; height: 16px; border-radius: 999px; background: var(--ink); border: 3px solid var(--ground); box-shadow: 0 0 0 1px var(--ink); }
+.fg-range:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 @keyframes fg-wave { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
 @keyframes fg-scroll { 0% { transform: translateY(-100%); } 60%, 100% { transform: translateY(300%); } }

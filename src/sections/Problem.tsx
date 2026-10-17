@@ -1,21 +1,16 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Section } from "../components/Section";
 import { Kicker } from "../components/Kicker";
 import { Scale } from "../components/Scale";
-import { Stage } from "../components/Stage";
 import { Readout } from "../components/Readout";
 import { CropMarks } from "../components/CropMarks";
 import { Icon } from "../components/Icon";
-import type { Caps } from "../lib/env";
+import { Segmented } from "../components/Segmented";
+import { JointGrid } from "../viz/JointGrid";
 
-const loadBench = () => import("../three/scenes/BenchScene").then(async (m) => { await m.preload(); return m; });
-const GAP = 16;
-
-export function Problem({ caps }: { caps: Caps }) {
-  const [slip, setSlip] = useState({ on: false, rep: 4 });
-  const onSlip = useCallback((on: boolean, rep: number) => setSlip({ on, rep }), []);
-  // static views (no WebGL, mobile, reduced motion) show the moment of the slip
-  const flagged = caps.live3D ? slip.on : true;
+export function Problem() {
+  const [rep, setRep] = useState<"3" | "4">("3");
+  const slip = rep === "4";
   return (
     <Section id="problem" surface="raised" label="The problem">
       <div className="wrap pb-28 pt-28 lg:pb-40 lg:pt-40">
@@ -38,54 +33,42 @@ export function Problem({ caps }: { caps: Caps }) {
           </div>
         </div>
 
-        {/* beat 2 — what a camera can't see */}
+        {/* beat 2 — what a camera can't see: the same bench rep, two instruments */}
         <div className="mt-28 grid-12 gap-y-6 lg:mt-44">
           <h2 className="t-head col-span-12 text-h2 lg:col-span-6">A camera sees one side.</h2>
           <p className="col-span-12 max-w-[46ch] self-end text-lead lg:col-span-5 lg:col-start-8">
             Phone apps watch from one angle. On a bench press, if your far hand slips or your far elbow flares, the phone misses it. And you prop it up for every set.
           </p>
 
-          <div className="relative col-span-12 mt-10" style={{ ["--gap" as string]: `${GAP}px` }}>
-            {/* panel backgrounds, behind the canvas */}
-            <div aria-hidden className="absolute inset-0 grid grid-cols-2 gap-[var(--gap)]">
-              <div className="rounded-[26px] bg-chalk ring-[7px] ring-inset ring-iron" />
-              <div className="bg-chalk" />
-            </div>
-            <Stage load={loadBench} props={{ gap: GAP, onSlip }} live={caps.live3D} className="absolute inset-0"
-              alt="Two views of the same bench press. Left, a phone beside the bench sees only the near side; the far hand slips out of view. Right, the suit sees every joint on both sides and flags the far hand." />
-            {/* labels, in front */}
-            <div className="relative grid aspect-[1.25/1] grid-cols-1 gap-[var(--gap)] sm:aspect-[2.35/1] sm:grid-cols-2">
-              <figure className="relative rounded-[26px] p-5 sm:p-6">
-                <figcaption className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
-                  <Icon name="phone" size={18} className="text-[var(--ink)]" />
-                  <span className="text-[var(--ink)]">Phone camera</span> · one angle
-                </figcaption>
-                <p className="t-mono absolute right-6 top-6 hidden text-[var(--ink-muted)] sm:block">1× · 30 fps</p>
-                <p className="t-label absolute bottom-6 left-6 rounded-sm border border-dashed border-[var(--ink-muted)] bg-[var(--ground)]/70 px-2.5 py-[5px] text-[var(--ink-muted)]">
-                  Far side · out of view
-                </p>
-              </figure>
-              <CropMarks className="text-iron">
-                <figure className="relative h-full p-4 sm:p-5">
-                  <figcaption className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
-                    <Icon name="sides" size={18} className="text-[var(--ink)]" />
-                    <span className="text-[var(--ink)]">FormGuard suit</span> · both sides
-                  </figcaption>
-                </figure>
-              </CropMarks>
-            </div>
+          <div className="col-span-12 mt-8 flex flex-wrap items-center justify-between gap-4">
+            <p className="t-label text-[var(--ink-muted)]">Bench press · phone propped on your right · pick a rep</p>
+            <Segmented label="Rep" value={rep} onChange={setRep}
+              options={[{ value: "3", label: "Rep 3 · clean" }, { value: "4", label: "Rep 4 · far hand slips" }]} />
           </div>
 
-          {/* the verdicts, for the same rep */}
-          <div className="col-span-12 grid grid-cols-1 gap-[16px] sm:grid-cols-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <Readout status="neutral">Phone · no issues detected</Readout>
-            </div>
-            <div className="flex flex-wrap items-center gap-3" aria-live="polite">
-              {flagged
-                ? <Readout status="fault">Rep {String(slip.rep).padStart(2, "0")} · Grip drift · Left hand</Readout>
-                : <Readout status="clear">Rep {String(slip.rep).padStart(2, "0")} · Both sides clean</Readout>}
-            </div>
+          <div className="col-span-12 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <figure className="rounded-md border border-[var(--line)] bg-[var(--ground)] p-4 sm:p-5">
+              <figcaption className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
+                <Icon name="phone" size={18} className="text-[var(--ink)]" />
+                <span className="text-[var(--ink)]">Phone camera</span> · one angle
+              </figcaption>
+              <JointGrid className="mt-5" state={(j) => (j.endsWith(" R") ? "on" : "blind")} />
+              <div className="mt-4" aria-live="polite"><Readout status="neutral">Rep {rep.padStart(2, "0")} · no issues detected</Readout></div>
+            </figure>
+            <CropMarks className="text-[var(--ink)]">
+              <figure className="h-full rounded-md border border-[var(--line)] bg-[var(--ground)] p-4 sm:p-5">
+                <figcaption className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
+                  <Icon name="sides" size={18} className="text-[var(--ink)]" />
+                  <span className="text-[var(--ink)]">FormGuard suit</span> · both sides
+                </figcaption>
+                <JointGrid className="mt-5" state={(j) => (slip && j === "Wrist L" ? "fault" : "on")} />
+                <div className="mt-4" aria-live="polite">
+                  {slip
+                    ? <Readout status="fault">Rep 04 · Grip drift · Left hand</Readout>
+                    : <Readout status="clear">Rep 03 · Both sides in range</Readout>}
+                </div>
+              </figure>
+            </CropMarks>
           </div>
 
           <p className="t-head col-span-12 mt-16 max-w-[24ch] text-h3 lg:col-span-8">

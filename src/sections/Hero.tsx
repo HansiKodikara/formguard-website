@@ -1,57 +1,77 @@
-import { useCallback, useState } from "react";
-import { Stage } from "../components/Stage";
-import { ButtonLink } from "../components/Button";
+import { useEffect, useRef, useState } from "react";
+import { Button, ButtonLink } from "../components/Button";
 import { Readout } from "../components/Readout";
+import { RepStrip } from "../components/RepStrip";
+import { CueCard } from "../components/CueCard";
+import { Flag } from "../components/Flag";
 import { Section } from "../components/Section";
 import { SITE } from "../config";
 import type { Caps } from "../lib/env";
-import { NODES } from "../three/body";
-import type { HeroHud } from "../three/scenes/HeroScene";
+import { RepTrace } from "../viz/RepTrace";
+import { judge, type RepParams } from "../viz/signal";
+import { repAt, repDepth, useClock } from "../viz/lift";
 
-const loadHero = () => import("../three/scenes/HeroScene").then(async (m) => { await m.preload(); return m; });
+const PERIOD = 3.6, SET = 8;
+/** The set on the monitor: steady reps, with the left knee caving on rep 4. */
+const rep = (i: number): RepParams => ({ depth: repDepth(i), cave: i % SET === 3 ? 10 : 0, seed: i });
 
 export function Hero({ caps }: { caps: Caps }) {
-  const [hud, setHud] = useState<HeroHud | null>(null);
-  const onHud = useCallback((h: HeroHud) => setHud(h), []);
-  const total = NODES.length;
-  const shown = caps.live3D ? hud?.nodes ?? 0 : total;
+  const panel = useRef<HTMLDivElement>(null);
+  const [playing, setPlaying] = useState(true);
+  // reduced motion: start still, on the rep after the fault; the visitor can press play
+  useEffect(() => { if (caps.ready && caps.reduced) setPlaying(false); }, [caps.ready, caps.reduced]);
+  const clock = useClock(playing, panel);
+  // reduced motion opens on the rep after the fault, so the still tells the whole story
+  const t = (caps.reduced ? PERIOD * 4.35 : 0) + clock;
+
+  const { index, phase } = repAt(t, PERIOD);
+  const set = Math.floor(index / SET), inSet = index % SET;
+  const done = Array.from({ length: inSet }, (_, k) => rep(set * SET + k));
+  const live = { r: rep(index), p: phase };
+  const last = done[done.length - 1];
+  const fault = last ? judge(last) : null;
+
   return (
-    <Section id="top" surface="chalk" label="Introduction" className="overflow-hidden [--hero-foot:5.5rem]">
-      <Stage load={loadHero} props={{ onHud }} live={caps.live3D} still="/stills/hero.webp" alt="A lifter in the FormGuard sensor suit squats on a lifting platform in daylight. Sensor nodes glow at every joint and a skeleton overlay tracks the movement." className="absolute inset-x-0 top-0 bottom-[var(--hero-foot)]" />
-      {/* drags pass through the text to the 3D stage behind it (Turntable); links and buttons still take clicks */}
-      <div className="wrap pointer-events-none relative grid-12 min-h-[100svh] content-between gap-y-12 pb-10 pt-[calc(var(--header-h)+clamp(2.5rem,9vh,7rem))] lg:pb-12 [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
-        <div className="col-span-12 lg:col-span-8 2xl:col-span-9">
+    <Section id="top" surface="chalk" label="Introduction" className="overflow-hidden">
+      <div className="wrap relative grid-12 min-h-[100svh] content-center gap-y-12 pb-12 pt-[calc(var(--header-h)+clamp(2rem,5vh,4rem))]">
+        <div className="col-span-12 lg:col-span-6">
           <p className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
             <span aria-hidden className="h-px w-6 bg-[var(--ink)]" />In development · test lifters wanted
           </p>
-          <h1 className="t-display mt-6 text-[clamp(2.75rem,12.2vw,4.25rem)] uppercase leading-[0.9] lg:text-[clamp(4rem,6.85vw,8.5rem)]">
+          <h1 className="t-display mt-6 text-[clamp(2.75rem,12.2vw,4.25rem)] uppercase leading-[0.9] lg:text-[clamp(3.75rem,6vw,7.5rem)]">
             Coaching,<br />without the<br />coach.
           </h1>
           <p className="mt-8 max-w-[34ch] text-lead font-normal text-[var(--ink)]/90 lg:mt-10">{SITE.oneLiner}</p>
           <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
             <ButtonLink href="#test-lifter">Become a test lifter</ButtonLink>
-            <a href="#how" className="group inline-flex items-center gap-2 font-semibold underline decoration-[var(--line-strong)] decoration-1 underline-offset-[6px] transition-colors hover:decoration-[var(--ink)]">
-              See how it works
+            <a href="#try" className="inline-flex items-center gap-2 font-semibold underline decoration-[var(--line-strong)] decoration-1 underline-offset-[6px] transition-colors hover:decoration-[var(--ink)]">
+              Try a rep yourself
             </a>
           </div>
         </div>
-        <div className="col-span-12 grid-12 h-[var(--hero-foot)] items-center border-t border-[var(--line)] -mb-10 lg:-mb-12">
-          <div className="t-label col-span-4 flex items-center gap-4 text-[var(--ink-muted)] lg:col-span-6">
-            <span aria-hidden className="relative block h-9 w-px overflow-hidden bg-[var(--line-strong)]">
-              <span className="absolute inset-x-0 top-0 h-3 bg-[var(--ink)] motion-safe:animate-[fg-scroll_2.4s_var(--ease-lift)_infinite]" />
-            </span>
-            Scroll
-            {caps.live3D && <span className="ml-4 hidden border-l border-[var(--line)] pl-4 lg:inline">Drag to turn</span>}
-          </div>
-          <div className="col-span-8 flex flex-col items-end gap-3 lg:col-span-6 lg:flex-row lg:items-center lg:justify-end lg:gap-6">
-            <Readout status={shown === total ? "live" : "neutral"} className="tabular-nums">
-              Nodes · {String(shown).padStart(2, "0")}/{total}
-            </Readout>
-            {caps.live3D && hud && hud.rep > 0 ? (
-              <Readout status="clear" className="tabular-nums">Rep {String(hud.rep).padStart(2, "0")} · Knee {String(hud.knee).padStart(3, "0")}° · Depth {String(hud.depth).padStart(3, "0")}%</Readout>
-            ) : (
-              <p className="t-label hidden text-[var(--ink-muted)] lg:block">Fig. 01 · Warm-up set, every joint measured</p>
-            )}
+
+        {/* the instrument: a live set, every rep checked against the lifter's own normal */}
+        <div ref={panel} className="col-span-12 lg:col-span-6 lg:col-start-7">
+          <div className="rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Readout status="live">Back squat · set {set + 1} · rep {String(inSet + 1).padStart(2, "0")}</Readout>
+              <Button variant="quiet" size="sm" onClick={() => setPlaying((p) => !p)} aria-pressed={!playing}>{playing ? "Pause" : "Play"}</Button>
+            </div>
+            <RepTrace className="mt-5" compact reps={done} live={live}
+              title="A live squat set. Each rep is drawn as knee bend and left-knee travel against a shaded band, the lifter's normal. On rep 4 the left knee caves in and its trace leaves the band." />
+            <RepStrip className="mt-6" label="This set" reps={done.map((r) => ({ depth: r.depth, fault: judge(r)?.joint }))} slots={SET} />
+            <div className="mt-5 min-h-[9rem]" aria-live="polite">
+              {fault ? (
+                <CueCard joint={fault.joint} cue={fault.cue} fix={fault.fix} meta={`Rep ${inSet}`} className="max-w-none bg-[var(--ground)]" />
+              ) : last ? (
+                <div className="rounded-md border border-[var(--line)] bg-[var(--ground)] p-4">
+                  <Flag tone="clear">Rep {inSet} · in range</Flag>
+                  <p className="mt-2 text-[16px]">Within your normal. No cue.</p>
+                </div>
+              ) : (
+                <p className="t-mono pt-2 text-[var(--ink-muted)]">First rep of the set. Hover the trace to read it.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
