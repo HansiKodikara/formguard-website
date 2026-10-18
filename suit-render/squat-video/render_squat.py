@@ -37,7 +37,7 @@ Built in memory from formguard_suit.blend each run (rig, suit binding, bar, stud
 Reuses bench-video/fg_rig.py (skeleton, weights; fg_hand.py replaces its fingers, fg_skin.py adds skin and eyes) and the suit binding, helpers and lights of bench-video/fg_bench.py.
 """
 import bpy, sys, os, math, time, numpy as np
-from mathutils import Vector, Matrix
+from mathutils import Vector, Matrix, Quaternion
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 def opt(name, default=None):
@@ -266,7 +266,9 @@ KNEE0, KNEE_N, KNEE_IN = 101, 12, 28.0
 KNEE_SHOT = dict(az=6.0, el=6.0, zoom=0.50, focus=1.0)    # just the legs: hips to feet, landscape (KNEE_RES)
 KNEE_DROP = 0.13                                            # aim this far below the knees, so the feet are in
 KNEE_RES = '1200x900'
-CURL_SHOT, CURL_MARGIN = dict(az=90.0, el=3.0), 1.12          # square from his left: the arm hides where the body was cut away
+# three-quarters from his front-left, a little from above, tilted so the arm runs from the shoulder at the top right
+# down to the dumbbell at the bottom left (the arm sits on the right of the page)
+CURL_SHOT, CURL_MARGIN = dict(az=52.0, el=20.0, roll=-24.0), 1.10
 
 def key_knee_frames(rig, knee_poles):
     obs = [rig] + [p for p, _ in knee_poles.values()]
@@ -376,15 +378,16 @@ class Studio:
                 pts += [db.matrix_world @ Vector((sx * 0.12, 0.075 * math.cos(t), 0.075 * math.sin(t))) for sx in (1, -1)
                         for t in np.linspace(0, 2 * math.pi, 12, endpoint=False)]   # round the plates
             self.pts = pts
-            tgt, dist = self.fit(CURL_SHOT['az'], CURL_SHOT['el'], d0=0.4)
+            tgt, dist = self.fit(CURL_SHOT['az'], CURL_SHOT['el'], d0=0.4, roll=CURL_SHOT.get('roll', 0.0))
             self.curl_aim = (tgt, dist * CURL_MARGIN)
             SC.frame_set(f0)
         return self.place(CURL_SHOT, *self.curl_aim)
 
-    def fit(self, az, el, d0=1.5):
-        """Camera target and distance that frame the whole lift from this bearing."""
+    def fit(self, az, el, d0=1.5, roll=0.0):
+        """Camera target and distance that frame the whole lift from this bearing (and roll)."""
         v = cam_dir(az, el); fwd = -v
         right = fwd.cross(Vector((0, 0, 1))).normalized(); up = right.cross(fwd)
+        Rq = Quaternion(fwd, math.radians(roll)); right, up = Rq @ right, Rq @ up
         W, Hh = res(); asp = W / Hh
         half_h = 18.0 / CAM['lens']; half_w = half_h * asp           # sensor fit: 36 mm on the long (vertical) side
         tgt = sum(self.pts, Vector()) / len(self.pts)
@@ -416,7 +419,8 @@ class Studio:
     def place(self, sh, tgt, dist):
         v = cam_dir(sh['az'], sh['el'])
         self.cam.location = tgt + v * dist
-        self.cam.rotation_euler = (-v).to_track_quat('-Z', 'Y').to_euler()
+        # roll (deg, about the view axis): tilts the shot
+        self.cam.rotation_euler = (Quaternion(-v, math.radians(sh.get('roll', 0.0))) @ (-v).to_track_quat('-Z', 'Y')).to_euler()
         # the light rig and sweep turn with the camera, as in the product shots
         hv = Vector((v.x, v.y, 0)).normalized()
         rot = math.atan2(hv.y, hv.x) - math.radians(-90)

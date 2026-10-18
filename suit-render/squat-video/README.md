@@ -22,10 +22,10 @@ The poses come from a motion library of two reps:
 
 ## The curl frames
 
-"How it works" on the site uses 48 frames rendered with `--curl` (`fg_curl.py`):
+"How it works" on the site uses 80 frames rendered with `--curl` (`fg_curl.py`):
 
-- **What's shown:** just his left arm, square from his left, curling a dumbbell. The upper arm is by his side, the palm up, and the fingers are solved round the handle.
-- **The two lifts:** frames 1–24 are a clean lift, bottom to top. Frames 25–48 are the same lift with the classic fault: the upper arm swings forward, late in the lift, up to `CURL_DRIFT` (35°).
+- **What's shown:** just his left arm, curling a dumbbell, seen three-quarters from his front-left and a little from above. The shot is tilted (`CURL_SHOT`) so the arm runs from the shoulder at the top right down to the dumbbell at the bottom left, because the arm sits on the right of the page. The upper arm is by his side, the palm up, and the fingers are solved round the handle.
+- **The two lifts:** frames 1–40 are a clean lift, bottom to top. Frames 41–80 are the same lift with the classic fault: the upper arm swings forward, late in the lift, up to `CURL_DRIFT` (35°).
 - **The rest of him:** body and suit are masked to the arm, and the arm fades out towards the shoulder, so the cut never shows.
 - **Skinning:** the elbow uses volume-preserving skinning plus the smoothing pass. Plain skinning pinches the elbow's point into two lobes at the top of the curl.
 
@@ -34,7 +34,7 @@ On the page, scrolling plays the two reps (the way down is the same frames backw
 ```sh
 B=/Applications/Blender.app/Contents/MacOS/Blender
 $B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --curl --points src/viz/curlFrames.json
-$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --curl --samples 96   # about 2.5 min
+$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --curl --samples 96   # about 4 min
 $B -b --factory-startup --python suit-render/squat-video/encode_squat.py -- --set curl                            # public/demo/curl-NN.webp
 ```
 

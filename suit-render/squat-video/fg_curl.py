@@ -8,7 +8,7 @@ backwards. Keyed on frames CURL0 + k: k = 0 .. CURL_STEPS - 1 the clean lift, th
 import bpy, math, numpy as np
 from mathutils import Vector, Matrix
 
-CURL0, CURL_STEPS = 101, 24        # frames per lift, bottom to top
+CURL0, CURL_STEPS = 101, 40        # frames per lift, bottom to top
 CURL_N = 2 * CURL_STEPS
 CURL_BOTTOM, CURL_TOP = 68.0, -52.0  # the forearm's turn about the elbow from level (deg; + is down): arm all but
                                      # straight at the bottom, forearm up by the shoulder at the top
