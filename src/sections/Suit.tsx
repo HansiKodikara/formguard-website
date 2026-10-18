@@ -41,6 +41,7 @@ const SPECS = [
 
 export function Suit() {
   const [body, setBody] = useState<"on" | "off">("on");
+  const [sensors, setSensors] = useState(true);
   const [near, setNear] = useState(false);
   const [webgl] = useState(hasWebGL);
   const fig = useRef<HTMLElement>(null);
@@ -79,7 +80,11 @@ export function Suit() {
             <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
               <Segmented label="Show the suit" value={body} onChange={setBody}
                 options={[{ value: "on", label: "On the body" }, { value: "off", label: "Suit only" }]} />
-              <p className="t-label text-[var(--ink-muted)]">Drag to turn it</p>
+              <button type="button" aria-pressed={sensors} onClick={() => setSensors(!sensors)}
+                className={`h-12 rounded-md border px-4 text-[15px] font-semibold transition-colors ${sensors ? "border-[var(--ink)] text-[var(--ink)]" : "border-[var(--line-strong)] text-[var(--ink-muted)] hover:text-[var(--ink)]"}`}>
+                {sensors ? "Hide sensors" : "Show sensors"}
+              </button>
+              <p className="t-label basis-full text-[var(--ink-muted)]">Drag to turn it</p>
             </div>
           )}
         </div>
@@ -87,7 +92,7 @@ export function Suit() {
         <figure ref={fig} className="relative col-span-12 mx-auto aspect-[2/3] max-h-[88svh] w-full max-w-[36rem] lg:col-span-6 lg:col-start-7">
           {webgl && near ? (
             <Suspense fallback={poster}>
-              <SuitViewer showBody={body === "on"}
+              <SuitViewer showBody={body === "on"} sensors={sensors}
                 label={`3D model of the FormGuard suit${body === "on" ? " on a mannequin" : ""}: a black long-sleeve compression shirt and full-length tights with silver seam lines and sensor pods. Drag to turn it.`} />
             </Suspense>
           ) : <div key={shot.id} className="h-full">{poster}</div>}

@@ -1,6 +1,6 @@
 """Export the FormGuard suit on its mannequin as one web model (glTF binary, Draco-compressed).
 
-    blender -b suit-render/formguard_suit.blend --python suit-render/scripts/export_web.py -- [--out path.glb] [--scale 1.0] [--sheen 0.35]
+    blender -b suit-render/formguard_suit.blend --python suit-render/scripts/export_web.py -- [--out path.glb] [--scale 1.0] [--sheen 0.35] [--pods path.json]
 
 Bakes every modifier, curve bevel and geometry-nodes detail into plain meshes, cuts each piece down to a triangle
 budget (--scale multiplies every budget), and joins them into two nodes: FG_Suit (shirt, tights and all details) and
@@ -81,6 +81,44 @@ pieces = list(dict.fromkeys(o for cname in SRC_COLLS for o in bpy.data.collectio
 suit = [bake(o, dg) for o in pieces]
 suit = join(suit, 'FG_Suit')
 body = join([bake(shown_body, dg)], 'FG_Body')
+# ---------------------------------------------------------------- sensor positions, for the viewer's callouts
+def pod_centres(names):
+    """centres of the pod dots (each dot is one small island), clustered by distance"""
+    pts = []
+    for n in names:
+        o = bpy.data.objects[n]; e = o.evaluated_get(dg); me = e.to_mesh()
+        pts += [o.matrix_world @ v.co for v in me.vertices]
+        e.to_mesh_clear()
+    groups = []
+    for p in pts:
+        g = next((g for g in groups if (g[0] - p).length < 0.03), None)
+        if g: g[1].append(p)
+        else: groups.append([p.copy(), [p]])
+    return [sum(g[1], Vector()) / len(g[1]) for g in groups]
+
+def pod_name(c, garment):
+    side = 'L' if c.x > 0.02 else 'R' if c.x < -0.02 else ''
+    if garment == 'tights':
+        return 'LowerBack' if not side else ('Thigh_' if c.z > 0.45 else 'Shin_') + side
+    if not side: return 'ShoulderBlades'
+    if c.z > 1.40 and abs(c.x) < 0.2: return 'Trap_' + side
+    return ('Bicep_' if c.z > 1.12 else 'Wrist_') + side
+
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
+body_bvh = BVHTree.FromObject(shown_body, dg)
+PODS = []
+for garment, names in (('shirt', ['FG_Shirt_Pods_Dot']), ('tights', ['FG_Tights_Pods_Dot']), ('controller', None)):
+    if names is None:
+        o = bpy.data.objects['FG_Controller']
+        cs = [o.matrix_world @ (sum((v.co for v in o.data.vertices), Vector()) / len(o.data.vertices))]
+    else:
+        cs = pod_centres(names)
+    for c in cs:
+        hit, _, _, _ = body_bvh.find_nearest(c)
+        n = (c - hit).normalized()
+        PODS.append(dict(id='Controller' if names is None else pod_name(c, garment), c=c, n=n))
+
 # stand the model on the origin: feet at 0, centred over the floor
 zmin = min((o.matrix_world @ v.co).z for o in (body,) for v in o.data.vertices)
 cx = sum(v.co.x for v in body.data.vertices) / len(body.data.vertices)
@@ -100,6 +138,15 @@ for mat in {m for o in (suit, body) for m in o.data.materials if m and m.node_tr
         t = b.inputs['Sheen Tint'].default_value
         b.inputs['Sheen Tint'].default_value = (t[0] * w * SHEEN_GAIN, t[1] * w * SHEEN_GAIN, t[2] * w * SHEEN_GAIN, 1.0)
         b.inputs['Sheen Weight'].default_value = 1.0
+
+# pod positions in the glTF frame (Y up, -Y forward becomes +Z): next to the viewer's code
+import json
+PODS_OUT = os.path.abspath(opt('--pods') or os.path.join(FG_ROOT, '..', 'src', 'three', 'suitPods.json'))
+gl = lambda v: [round(v.x, 4), round(v.z, 4), round(-v.y, 4)]
+off = Vector((-cx, -cy, -zmin))
+with open(PODS_OUT, 'w') as f:
+    json.dump([dict(id=p['id'], p=gl(p['c'] + off), n=gl(p['n'])) for p in sorted(PODS, key=lambda p: p['id'])], f, indent=1)
+print(f'[FormGuard] {len(PODS)} sensor positions -> {PODS_OUT}', sorted(p['id'] for p in PODS))
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 bpy.ops.object.select_all(action='DESELECT')
