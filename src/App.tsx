@@ -4,7 +4,6 @@ import { Hero } from "./sections/Hero";
 import { Suit } from "./sections/Suit";
 import { Problem } from "./sections/Problem";
 import { HowItWorks } from "./sections/HowItWorks";
-import { AnnyCompare } from "./sections/AnnyCompare";
 import { TryIt } from "./sections/TryIt";
 import { TestLifter } from "./sections/TestLifter";
 import { useCaps } from "./lib/env";
@@ -20,7 +19,6 @@ export function App() {
         <Suit caps={caps} />
         <Problem />
         <HowItWorks caps={caps} />
-        <AnnyCompare caps={caps} />
         <TryIt />
         <TestLifter />
       </main>
