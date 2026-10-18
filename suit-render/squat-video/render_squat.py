@@ -30,7 +30,7 @@ Options:
     --simple           pose from the simple depth curves instead of the MyoSuite motion (squat-motion.json)
     --motion FILE      MyoSuite motion to use (default squat-video/squat-motion.json, from myo_squat.py)
     --workbench        flat viewport shading instead of Cycles (motion check only)
-    --points FILE      write each frame's scroll position, the left knee and the floor shadow (0-1 image
+    --points FILE      write each frame's scroll position, the left knee (curl: the left elbow and the dumbbell) and the floor shadow (0-1 image
                        coordinates, y down) as JSON and stop, without rendering (src/viz/squatFrames.json)
 
 Built in memory from formguard_suit.blend each run (rig, suit binding, bar, studio): the .blend is never saved.
@@ -527,13 +527,15 @@ if isinstance(opt('--points'), str):
     from bpy_extras.object_utils import world_to_camera_view
     def px(v):
         q = world_to_camera_view(SC, SC.camera, v); return q.x, 1 - q.y
-    knee, floor = [], []
+    knee, floor, hand = [], [], []
     feet = None
     for p, m in STORY:
         show(rig, studio, p, m)
         bpy.context.view_layer.update()
         # the knee: the shin bone's head (the joint centre)
         knee.append([round(c, 4) for c in px(rig.matrix_world @ rig.pose.bones['forearm.L' if CURL else 'shin.L'].head)])
+        # the curl's dumbbell: the middle of the handle, for the path it travels
+        if CURL: hand.append([round(c, 4) for c in px(bpy.data.objects['FG_Dumbbell'].matrix_world.translation)])
         if feet is None:
             fp = [rig.matrix_world @ rig.pose.bones[f'foot.{sd}'].head for sd in ('L', 'R')] + \
                  [rig.matrix_world @ rig.pose.bones[f'foot.{sd}'].tail for sd in ('L', 'R')]
@@ -544,7 +546,7 @@ if isinstance(opt('--points'), str):
                       round(min(y for _, y in ring), 4), round(max(y for _, y in ring), 4)])
     with open(opt('--points'), 'w') as fh:
         if CURL:
-            json.dump({'frames': N, 'steps': CURL_STEPS, 'size': list(res()), 'elbowL': knee}, fh, separators=(',', ':'))
+            json.dump({'frames': N, 'steps': CURL_STEPS, 'size': list(res()), 'elbowL': knee, 'dumbbell': hand}, fh, separators=(',', ':'))
             with open(os.path.join(HERE, 'floor-curl.json'), 'w') as fl:
                 json.dump({'floor': [None] * N}, fl)          # the feet are out of the shot
         elif KNEE:

@@ -29,7 +29,7 @@ The poses come from a motion library of two reps:
 - **The rest of him:** body and suit are masked to the arm, and the arm fades out towards the shoulder, so the cut never shows.
 - **Skinning:** the elbow uses volume-preserving skinning plus the smoothing pass. Plain skinning pinches the elbow's point into two lobes at the top of the curl.
 
-On the page, scrolling plays the two reps (the way down is the same frames backwards). On rep 2, past the normal range, the suit's alert appears.
+On the page, scrolling plays the two reps (the way down is the same frames backwards). `--points` also projects the dumbbell into every frame, and the page draws its path as a faint dotted line. On rep 2 the clean path stays as his normal, the new path turns red where the elbow leaves it, and the elbow ring goes red and pulses.
 
 ```sh
 B=/Applications/Blender.app/Contents/MacOS/Blender
