@@ -94,6 +94,8 @@ const ICONS = {
   ),
   /** a good rep */
   check: <path d="M4.5 12.6 9.8 17.8 19.8 6.4" />,
+  /** not this one: the comparison table's 'no' */
+  cross: <path d="M6 6l12 12M18 6 6 18" />,
   /** a flagged rep */
   flag: <><path d="M6 21.5V2.5" /><path d="M6 3h13.5l-3.4 4.6 3.4 4.6H6z" fill="currentColor" /></>,
   arrow: <path d="M3.5 12h16M13.5 6l6 6-6 6" />,
