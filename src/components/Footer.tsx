@@ -3,7 +3,7 @@ import { SITE } from "../config";
 
 export function Footer() {
   return (
-    <footer data-surface="iron" className="surface-iron">
+    <footer data-surface="iron" className="surface-iron border-t border-[var(--line)]">
       <div className="wrap grid-12 gap-y-10 py-16 lg:py-20">
         <div className="col-span-12 lg:col-span-6">
           <Logo tone="reversed" height={28} />

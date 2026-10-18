@@ -48,8 +48,8 @@ export function TestLifter() {
   };
 
   return (
-    <Section id="test-lifter" surface="chalk" label="Become a test lifter">
-      <div className="wrap grid-12 gap-y-12 pb-28 pt-28 lg:pb-40 lg:pt-36">
+    <Section id="test-lifter" surface="iron" label="Become a test lifter">
+      <div className="wrap grid-12 gap-y-12 pb-24 pt-20 lg:pb-32 lg:pt-28">
         <div className="col-span-12 lg:col-span-5">
           <Kicker index="03">Test lifters</Kicker>
           <h2 className="t-head mt-6 text-h2">Become a test lifter.</h2>
