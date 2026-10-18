@@ -24,8 +24,8 @@ export function Hero() {
           <p className="mt-8 max-w-[34ch] text-lead font-normal text-[var(--ink)]/90 lg:mt-10">{SITE.oneLiner}</p>
           <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
             <ButtonLink href="#test-lifter">Become a test lifter</ButtonLink>
-            <a href="#try" className="inline-flex items-center gap-2 font-semibold underline decoration-[var(--line-strong)] decoration-1 underline-offset-[6px] transition-colors hover:decoration-[var(--ink)]">
-              Try a rep yourself
+            <a href="#how" className="inline-flex items-center gap-2 font-semibold underline decoration-[var(--line-strong)] decoration-1 underline-offset-[6px] transition-colors hover:decoration-[var(--ink)]">
+              See how it works
             </a>
           </div>
           {/* the kit, in three numbers */}

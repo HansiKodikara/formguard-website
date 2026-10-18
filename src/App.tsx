@@ -3,7 +3,6 @@ import { Footer } from "./components/Footer";
 import { Hero } from "./sections/Hero";
 import { WhyUs } from "./sections/WhyUs";
 import { HowItWorks } from "./sections/HowItWorks";
-import { TryIt } from "./sections/TryIt";
 import { TestLifter } from "./sections/TestLifter";
 import { useCaps } from "./lib/env";
 
@@ -17,7 +16,6 @@ export function App() {
         <Hero />
         <WhyUs />
         <HowItWorks caps={caps} />
-        <TryIt />
         <TestLifter />
       </main>
       <Footer />
