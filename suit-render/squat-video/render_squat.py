@@ -17,8 +17,8 @@ Options:
     --story 170        how many output frames the take has (stills, scroll-scrubbed)
     --knee             the knee frames instead: one shot at the bottom, the left knee swinging from over the toes
                        to caved in 12 steps (into renders/knee), for 'How it works'
-    --curl             the curl frames instead: from his left, his elbow drifting forward off his side in 12
-                       steps mid-way through a dumbbell curl (into renders/curl), for 'How it works'
+    --curl             the curl frames instead: just his left arm, from his left, lifting a dumbbell bottom to
+                       top, clean and then with the elbow drifting forward (fg_curl.py; into renders/curl)
     --video            frames for the video instead: 30 fps over the story's 26 s, evenly in time (into
                        renders/video; encode_squat.py lays them on the page's colour and makes the MP4)
     --timeline FILE    the story (default squat-video/timeline.json)
@@ -115,6 +115,12 @@ def build():
     pieces = bind_suit(body, rig, S)
     if not opt('--dqs'):
         smooth_skinning([body] + pieces)
+    if CURL:
+        # the curl bends the elbow much further than the squat bends anything: plain skinning pinches its point into
+        # two lobes, so keep the volume there (and still smooth after it)
+        for ob in [body] + pieces:
+            for m in ob.modifiers:
+                if m.type == 'ARMATURE': m.use_deform_preserve_volume = True
     # the product scene's own suit, mannequin and stage are not part of this shot
     for c in ('FG_Shirt_Set', 'FG_Tights_Set', 'FG_Shirt_Details', 'FG_Tights_Details', 'FG_Stage'):
         if c in bpy.data.collections:
@@ -260,7 +266,7 @@ KNEE0, KNEE_N, KNEE_IN = 101, 12, 28.0
 KNEE_SHOT = dict(az=6.0, el=6.0, zoom=0.50, focus=1.0)    # just the legs: hips to feet, landscape (KNEE_RES)
 KNEE_DROP = 0.13                                            # aim this far below the knees, so the feet are in
 KNEE_RES = '1200x900'
-CURL_SHOT, CURL_MARGIN = dict(az=90.0, el=3.0), 1.42          # square from his left: the arm hides where the body was cut away
+CURL_SHOT, CURL_MARGIN = dict(az=90.0, el=3.0), 1.12          # square from his left: the arm hides where the body was cut away
 
 def key_knee_frames(rig, knee_poles):
     obs = [rig] + [p for p, _ in knee_poles.values()]
@@ -361,13 +367,14 @@ class Studio:
             f0 = SC.frame_current
             pb = self.rig.pose.bones; mw = self.rig.matrix_world; db = bpy.data.objects['FG_Dumbbell']
             pts = []
-            for f in (CURL0, CURL0 + CURL_N - 1):
+            for f in range(CURL0, CURL0 + CURL_N, 3):
                 SC.frame_set(f); bpy.context.view_layer.update()
                 # the top edge crosses the upper arm well below the shoulder, where the arm is cut from the body
                 ua = pb['upper_arm.L']
                 el = mw @ pb['forearm.L'].head
                 pts += [mw @ ua.head.lerp(ua.tail, 0.45), el, el + Vector((0, 0.07, -0.04)), mw @ pb['hand.L'].tail]   # the back of the elbow too
-                pts += [db.matrix_world @ Vector((sx * 0.12, 0, dz)) for sx in (1, -1) for dz in (0.075, -0.075)]
+                pts += [db.matrix_world @ Vector((sx * 0.12, 0.075 * math.cos(t), 0.075 * math.sin(t))) for sx in (1, -1)
+                        for t in np.linspace(0, 2 * math.pi, 12, endpoint=False)]   # round the plates
             self.pts = pts
             tgt, dist = self.fit(CURL_SHOT['az'], CURL_SHOT['el'], d0=0.4)
             self.curl_aim = (tgt, dist * CURL_MARGIN)
@@ -427,7 +434,7 @@ class Studio:
         return sh
 
 def res():
-    r = opt('--res') or (KNEE_RES if KNEE or CURL else '900x1200')
+    r = opt('--res') or (KNEE_RES if KNEE else '900x1200')
     return tuple(int(x) for x in r.split('x'))
 
 # ================================================================ the story: output frames along the scroll
@@ -533,7 +540,7 @@ if isinstance(opt('--points'), str):
                       round(min(y for _, y in ring), 4), round(max(y for _, y in ring), 4)])
     with open(opt('--points'), 'w') as fh:
         if CURL:
-            json.dump({'frames': N, 'size': list(res()), 'elbowL': knee}, fh, separators=(',', ':'))
+            json.dump({'frames': N, 'steps': CURL_STEPS, 'size': list(res()), 'elbowL': knee}, fh, separators=(',', ':'))
             with open(os.path.join(HERE, 'floor-curl.json'), 'w') as fl:
                 json.dump({'floor': [None] * N}, fl)          # the feet are out of the shot
         elif KNEE:

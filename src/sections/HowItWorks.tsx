@@ -1,6 +1,6 @@
 import { Section } from "../components/Section";
 import { Kicker } from "../components/Kicker";
-import { CurlDemo } from "../components/CurlDemo";
+import { CurlScroll } from "../components/CurlScroll";
 import type { Caps } from "../lib/env";
 
 /** Four steps, a few words each; the third is the one you can try, right below. */
@@ -29,7 +29,7 @@ export function HowItWorks({ caps }: { caps: Caps }) {
           ))}
         </ol>
 
-        <CurlDemo reduced={caps.reduced} className="mt-14" />
+        <CurlScroll reduced={caps.reduced} className="mt-10" />
       </div>
     </Section>
   );

@@ -1,14 +1,19 @@
-"""The curl frames for 'How it works': the lifter standing, his left arm mid-way through a dumbbell curl (upper arm
-by his side, forearm level, palm up), and the classic fault: the elbow drifting forward off his side as the shoulder
-takes over. Keyed on frames CURL0 + k, k = 0 .. CURL_N - 1, the upper arm swinging forward up to CURL_DRIFT degrees.
+"""The curl frames for 'How it works': the lifter's left arm curling a dumbbell (upper arm by his side, palm up),
+lifted from the bottom (arm all but straight) to the top (forearm up by his shoulder), twice: a clean lift, then the
+classic fault, the elbow drifting forward off his side as the shoulder takes over. The way down is the same frames
+backwards. Keyed on frames CURL0 + k: k = 0 .. CURL_STEPS - 1 the clean lift, then the same again with the drift.
 
     pose_curl(rig, body)    the pose, the dumbbell in his left hand (fingers solved round the handle), the frames
 """
 import bpy, math, numpy as np
 from mathutils import Vector, Matrix
 
-CURL0, CURL_N, CURL_DRIFT = 101, 12, 40.0
-ELBOW_UP = 0.10            # the forearm just above level (rise over run), mid-curl
+CURL0, CURL_STEPS = 101, 24        # frames per lift, bottom to top
+CURL_N = 2 * CURL_STEPS
+CURL_BOTTOM, CURL_TOP = 68.0, -52.0  # the forearm's turn about the elbow from level (deg; + is down): arm all but
+                                     # straight at the bottom, forearm up by the shoulder at the top
+CURL_DRIFT = 35.0                    # how far the elbow drifts forward by the top of the faulty lift (deg)
+ELBOW_UP = 0.0             # the forearm level in the pose the grip is solved in
 HANDLE_R = 0.0165           # dumbbell handle radius (m)
 
 
@@ -92,14 +97,20 @@ def pose_curl(rig, body, coll, M):
     db.matrix_basis = rig.matrix_world @ rest
     bpy.context.view_layer.update()
     grip(rig, db, HANDLE_R)
-    # the frames: the upper arm swings forward (about the side-to-side axis), the elbow leaving his side
-    ua = pb['upper_arm.L']
-    base = ua.rotation_quaternion.copy()
+    # the frames: the forearm lifts about the elbow (a side-to-side axis); on the second lift the upper arm swings
+    # forward with it, late in the lift, as the shoulder takes over
+    ua, fa = pb['upper_arm.L'], pb['forearm.L']
+    ua0, fa0 = ua.rotation_quaternion.copy(), fa.rotation_quaternion.copy()
     for k in range(CURL_N):
-        t = k / (CURL_N - 1); t = t * t * (3 - 2 * t)
-        ua.rotation_quaternion = base
-        _turn_bone(ua, (1, 0, 0), -CURL_DRIFT * t)
+        u = (k % CURL_STEPS) / (CURL_STEPS - 1)
+        e = u * u * (3 - 2 * u)
+        drift = CURL_DRIFT * sstep(0.25, 0.9, u) if k >= CURL_STEPS else 0.0
+        ua.rotation_quaternion = ua0; fa.rotation_quaternion = fa0
+        _turn_bone(ua, (1, 0, 0), -drift)
+        bpy.context.view_layer.update()
+        _turn_bone(fa, (1, 0, 0), CURL_BOTTOM + (CURL_TOP - CURL_BOTTOM) * e)
         ua.keyframe_insert('rotation_quaternion', frame=CURL0 + k)
+        fa.keyframe_insert('rotation_quaternion', frame=CURL0 + k)
     return db
 
 

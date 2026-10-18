@@ -72,9 +72,10 @@ n = len(frames)
 if SET in ('knee', 'curl'):
     import subprocess
     pub = os.path.abspath(os.path.join(HERE, '..', '..', 'public', 'demo'))
+    WEB_W = 720 if SET == 'curl' else 960          # the curl is portrait (900 x 1200), the knee landscape
     os.makedirs(pub, exist_ok=True)
     for f in frames:
-        subprocess.run(['cwebp', '-quiet', '-q', '80', '-sharp_yuv', '-metadata', 'none', '-resize', '960', '0',
+        subprocess.run(['cwebp', '-quiet', '-q', '80', '-sharp_yuv', '-metadata', 'none', '-resize', str(WEB_W), '0',
                         os.path.join(COMP, f), '-o', os.path.join(pub, f'{SET}-{int(f[6:9]):02d}.webp')], check=True)
     print(f'[encode] {n} {SET} frames -> {pub}', flush=True)
     raise SystemExit(0)

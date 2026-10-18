@@ -22,18 +22,19 @@ The poses come from a motion library of two reps:
 
 ## The curl frames
 
-"How it works" on the site uses 12 frames rendered with `--curl` (`fg_curl.py`):
+"How it works" on the site uses 48 frames rendered with `--curl` (`fg_curl.py`):
 
-- **What's shown:** just his left arm, mid-way through a dumbbell curl, seen square from his left. The upper arm is by his side, the forearm level, the palm up, and the fingers are solved round the handle.
-- **The fault:** the upper arm swings forward up to `CURL_DRIFT` (40°), so the elbow leaves his side.
+- **What's shown:** just his left arm, square from his left, curling a dumbbell. The upper arm is by his side, the palm up, and the fingers are solved round the handle.
+- **The two lifts:** frames 1–24 are a clean lift, bottom to top. Frames 25–48 are the same lift with the classic fault: the upper arm swings forward, late in the lift, up to `CURL_DRIFT` (35°).
 - **The rest of him:** body and suit are masked to the arm, and the arm fades out towards the shoulder, so the cut never shows.
+- **Skinning:** the elbow uses volume-preserving skinning plus the smoothing pass. Plain skinning pinches the elbow's point into two lobes at the top of the curl.
 
-On the page, the visitor drags the elbow forward and the suit's alert appears past the normal range.
+On the page, scrolling plays the two reps (the way down is the same frames backwards). On rep 2, past the normal range, the suit's alert appears.
 
 ```sh
 B=/Applications/Blender.app/Contents/MacOS/Blender
 $B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --curl --points src/viz/curlFrames.json
-$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --curl --samples 96   # under a minute
+$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --curl --samples 96   # about 2.5 min
 $B -b --factory-startup --python suit-render/squat-video/encode_squat.py -- --set curl                            # public/demo/curl-NN.webp
 ```
 
