@@ -6,6 +6,7 @@ set -e
 SRC=suit-render/squat-video/renders
 OUT=public/squat
 mkdir -p "$OUT"
+rm -f "$OUT"/*.webp
 for f in "$SRC"/squat-*.png; do
   n=$(basename "$f" .png | sed 's/squat-//')
   for w in 720 450; do

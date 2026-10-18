@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import type { HowState } from "../viz/how";
-import { frameFor, frameUrl, SQUAT } from "../viz/squatFrames";
+import { frameAt, frameUrl, progressOf, SQUAT } from "../viz/squatFrames";
 
 /**
  * The rendered squat for 'How it works', on the page's own background (the frames are transparent). Scrolling picks
  * the frame for the moment and a canvas draws it; frames preload as the section comes near, and until one is in,
- * the nearest loaded frame stands in. The feet never move,
- * so the contact shadow is drawn once under them. When the knee caves, a hairline ring marks the left knee, as the
- * sensor callouts on the hero model do: ink on this light page, no glow.
+ * the nearest loaded frame stands in. The camera moves round the lifter and in on his knees as the story goes, so
+ * the contact shadow under the feet is placed per frame, and the frame's edges fade into the page (the close shots
+ * crop him). When the knee caves, a hairline ring marks the left knee, as the sensor callouts on the hero model do:
+ * ink on this light page, no glow.
  */
-type St = Pick<HowState, "step" | "phase" | "depth" | "rep" | "flag" | "buzz">;
+type St = Pick<HowState, "step" | "local" | "flag" | "buzz">;
 
-const [fx0, fx1, fy0, fy1] = SQUAT.floor;
+/** fade the frame's edges into the page: the close shots crop the lifter and the bar */
+const EDGE_FADE = "linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent)";
+const fade = { maskImage: EDGE_FADE, WebkitMaskImage: EDGE_FADE, maskComposite: "intersect", WebkitMaskComposite: "source-in" } as const;
+
 /** a soft ellipse under the feet */
-function FloorShadow() {
-  const cx = (fx0 + fx1) / 2, cy = fy1 - (fy1 - fy0) * 0.25, w = (fx1 - fx0) * 1.45, h = (fy1 - fy0) * 0.9;
+function FloorShadow({ frame }: { frame: number }) {
+  const [fx0, fx1, fy0, fy1] = SQUAT.floor[frame - 1];
+  const cx = (fx0 + fx1) / 2, cy = (fy0 + fy1) / 2, w = fx1 - fx0, h = fy1 - fy0;
   return (
     <div aria-hidden className="pointer-events-none absolute rounded-[50%]"
       style={{ left: `${(cx - w / 2) * 100}%`, top: `${(cy - h / 2) * 100}%`, width: `${w * 100}%`, height: `${h * 100}%`,
@@ -48,7 +53,7 @@ function KneeLabel({ frame, on }: { frame: number; on: boolean }) {
   );
 }
 
-const label = (st: St) => `Rendered: a lifter in the FormGuard suit doing a back squat${st.rep === 7 && st.flag ? ", the left knee caving in" : ""}.`;
+const label = (st: St) => `Rendered: a lifter in the FormGuard suit doing a back squat${st.flag ? ", the left knee caving in" : ""}.`;
 
 /** Scroll-scrubbed: every frame preloaded, drawn on a canvas. */
 export function SquatView({ st, className = "" }: { st: St; className?: string }) {
@@ -56,7 +61,7 @@ export function SquatView({ st, className = "" }: { st: St; className?: string }
   const canvas = useRef<HTMLCanvasElement>(null);
   const imgs = useRef<(HTMLImageElement | null)[]>([]);
   const [ready, setReady] = useState(0);              // bumps as frames arrive, to redraw
-  const frame = frameFor(st);
+  const frame = frameAt(progressOf(st));
 
   // preload every frame once the section is near
   useEffect(() => {
@@ -98,8 +103,10 @@ export function SquatView({ st, className = "" }: { st: St; className?: string }
 
   return (
     <div ref={box} className={`relative aspect-[3/4] ${className}`}>
-      <FloorShadow />
-      <canvas ref={canvas} role="img" className="absolute inset-0 h-full w-full" aria-label={label(st)} />
+      <div className="absolute inset-0" style={fade}>
+        <FloorShadow frame={frame} />
+        <canvas ref={canvas} role="img" className="absolute inset-0 h-full w-full" aria-label={label(st)} />
+      </div>
       <KneeMark frame={frame} on={st.flag} buzz={st.buzz} />
       <KneeLabel frame={frame} on={st.flag} />
     </div>
@@ -108,12 +115,14 @@ export function SquatView({ st, className = "" }: { st: St; className?: string }
 
 /** One still frame (mobile, reduced motion). */
 export function SquatStill({ st, className = "" }: { st: St; className?: string }) {
-  const f = frameFor(st);
+  const f = frameAt(progressOf(st));
   return (
     <div className={`relative aspect-[3/4] ${className}`}>
-      <FloorShadow />
+      <div className="absolute inset-0" style={fade}>
+      <FloorShadow frame={f} />
       <img src={frameUrl(f, 450)} srcSet={`${frameUrl(f, 450)} 450w, ${frameUrl(f, 720)} 720w`} sizes="(min-width: 768px) 40vw, 92vw"
         width={900} height={1200} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full" alt={label(st)} />
+      </div>
       <KneeMark frame={f} on={st.flag} buzz={0} />
       <KneeLabel frame={f} on={st.flag} />
     </div>
