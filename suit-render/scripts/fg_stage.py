@@ -9,11 +9,43 @@ OUT_DIR = os.path.join(FG_ROOT, 'FormGuard_Renders')
 EXPOSURE = -3.2
 sc.view_settings.exposure = EXPOSURE
 
-# ---------------------------------------------------------------- ghost body: invisible to camera and every other ray
+# ---------------------------------------------------------------- body: a ghost for the product shots, a mannequin for the body shots
 body = bpy.data.objects['Body_Form']
-for attr in ('visible_camera', 'visible_shadow', 'visible_diffuse', 'visible_glossy', 'visible_transmission', 'visible_volume_scatter'):
-    setattr(body, attr, False)
-body.hide_set(True)
+RAYS = ('visible_camera', 'visible_shadow', 'visible_diffuse', 'visible_glossy', 'visible_transmission', 'visible_volume_scatter')
+# a matte, warm-stone mannequin: neutral, no red, so the suit and its pods carry the colour
+M['mannequin'] = principled('FG_Mannequin', '#A39B8F', rough=0.5, spec=0.35, sheen=0.1, sheen_tint='#F2EDE4')
+
+def display_body():
+    """The body as shown in the body shots: a copy of Body_Form's mesh, so the garments (shrinkwrapped to Body_Form)
+    never change. Under the tights' crotch panel the base mesh's anatomy would push through the fabric, so that small,
+    fully covered patch is masked out."""
+    ob = bpy.data.objects.get('FG_Body_Display')
+    if ob is None:
+        me = body.data.copy(); me.name = 'FG_Body_Display'
+        ob = bpy.data.objects.new('FG_Body_Display', me); C_STAGE.objects.link(ob)
+        ob.matrix_world = body.matrix_world.copy()
+        me.materials.clear(); me.materials.append(M['mannequin'])
+        for p in me.polygons: p.use_smooth = True
+        vg = ob.vertex_groups.new(name='under_crotch_panel')
+        c, rad, sc3 = Vector((0.0, -0.118, 0.862)), 0.062 * 1.5, (0.7, 1.3, 1.0)
+        mw = ob.matrix_world
+        hide = [v.index for v in me.vertices
+                if sum((((mw @ v.co)[i] - c[i]) / (rad * sc3[i])) ** 2 for i in range(3)) < 1.0]
+        vg.add(hide, 1.0, 'REPLACE')
+        mk = ob.modifiers.new('HideUnderPanel', 'MASK'); mk.vertex_group = vg.name; mk.invert_vertex_group = True
+    return ob
+shown_body = display_body()
+
+def set_body(visible):
+    """visible=False: the ghost product shots. Body_Form itself is always invisible to every ray; the body shots
+    show its display copy."""
+    for attr in RAYS:
+        setattr(body, attr, False)
+        setattr(shown_body, attr, visible)
+    body.hide_set(True)
+    shown_body.hide_render = not visible
+    shown_body.hide_set(not visible)
+set_body(False)
 
 # ---------------------------------------------------------------- backdrop sweep (local: floor at z=0, wall behind at +Y)
 def build_sweep():
@@ -87,21 +119,27 @@ SHOTS = [
     ('03_tights_front', ['FG_Tights_Set'], 0.0),
     ('04_tights_back', ['FG_Tights_Set'], 180.0),
     ('05_suit_three_quarter_back', ['FG_Shirt_Set', 'FG_Tights_Set'], 145.0),
+    # the suit on the body (the mannequin is shown, stands on the floor, and is framed head to toe)
+    ('06_body_front', ['FG_Shirt_Set', 'FG_Tights_Set'], 0.0, True),
+    ('07_body_three_quarter_front', ['FG_Shirt_Set', 'FG_Tights_Set'], 35.0, True),
+    ('08_body_back', ['FG_Shirt_Set', 'FG_Tights_Set'], 180.0, True),
 ]
 SETS = ['FG_Shirt_Set', 'FG_Tights_Set']
 
-def garment_points(sets):
+def garment_points(sets, with_body=False):
     dg = bpy.context.evaluated_depsgraph_get()
     pts = []
-    for cname in sets:
-        for o in bpy.data.collections[cname].all_objects:
-            if o.type != 'MESH' or o.hide_render or 'Guide' in o.name: continue
-            e = o.evaluated_get(dg); me = e.to_mesh()
-            co = np.empty(len(me.vertices) * 3); me.vertices.foreach_get('co', co)
-            co = co.reshape(-1, 3)[::7]
-            mw = np.array(o.matrix_world)
-            pts.append(co @ mw[:3, :3].T + mw[:3, 3])
-            e.to_mesh_clear()
+    objs = [o for cname in sets for o in bpy.data.collections[cname].all_objects]
+    if with_body:
+        objs.append(shown_body)
+    for o in objs:
+        if o.type != 'MESH' or o.hide_render or 'Guide' in o.name: continue
+        e = o.evaluated_get(dg); me = e.to_mesh()
+        co = np.empty(len(me.vertices) * 3); me.vertices.foreach_get('co', co)
+        co = co.reshape(-1, 3)[::7]
+        mw = np.array(o.matrix_world)
+        pts.append(co @ mw[:3, :3].T + mw[:3, 3])
+        e.to_mesh_clear()
     return np.vstack(pts)
 
 def look_at(ob, target, up=Vector((0, 0, 1))):
@@ -110,12 +148,14 @@ def look_at(ob, target, up=Vector((0, 0, 1))):
 
 def setup_shot(name):
     shot = next(s for s in SHOTS if s[0] == name)
-    _, show, rot = shot
+    _, show, rot = shot[:3]
+    on_body = len(shot) > 3 and shot[3]
+    set_body(on_body)
     for c in SETS:
         bpy.data.collections[c].hide_render = c not in show
         bpy.data.collections[c].hide_viewport = c not in show
     bpy.context.view_layer.update()
-    P = garment_points(show)
+    P = garment_points(show, on_body)
     Rz = Matrix.Rotation(math.radians(rot), 3, 'Z')
     fwd = Rz @ Vector((0, 1, 0)); right = Rz @ Vector((1, 0, 0))
     u = P @ np.array(right); v = P[:, 2]; w = P @ np.array(fwd)
@@ -130,7 +170,8 @@ def setup_shot(name):
     cam_data.shift_x = 0.0
     cam_data.shift_y = (vc - CHEST_H) / frame_h
     # rig transform for lights + backdrop: at the garment centre, facing the camera
-    floor = float(v.min()) - 0.03
+    # ghost shots float 3 cm over the floor; the body stands on it
+    floor = 0.0 if on_body else float(v.min()) - 0.03
     T = Matrix.Translation(Vector((centre.x, centre.y, vc))) @ Matrix.Rotation(math.radians(rot), 4, 'Z')
     for lname, (lob, lpos) in LIGHTS.items():
         if lname == 'FG_Fill':

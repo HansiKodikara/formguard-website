@@ -184,12 +184,13 @@ def side(v, s): return (v[0] * s, v[1], v[2])
 POD_SPECS = {}
 for s, tag in ((1, 'L'), (-1, 'R')):
     POD_SPECS[f'Wrist_{tag}'] = ('shirt', ('ray', side(WR + fore_up * 0.03, s), side((0.85, 0.5, 0.05), s)))
-    POD_SPECS[f'Bicep_{tag}'] = ('shirt', ('ray', side(EL + up_arm * 0.05, s), side((0.25, -1, 0.0), s)))
+    POD_SPECS[f'Bicep_{tag}'] = ('shirt', ('ray', side(EL + up_arm * 0.18, s), side((0.75, -0.65, 0.0), s)))
     POD_SPECS[f'Trap_{tag}'] = ('shirt', ('ray', side((0.145, 0.0, 1.44), s), (0, 0.12, 1)))
     POD_SPECS[f'Thigh_{tag}'] = ('tights', ('ray', side((0.145, -0.02, 0.63), s), (0, -1, 0)))
     POD_SPECS[f'Shin_{tag}'] = ('tights', ('ray', side((0.169, 0.06, 0.30), s), side((0.75, -0.65, 0), s)))
 POD_SPECS['ShoulderBlades_T5'] = ('shirt', ('ray', (0, 0, 1.37), (0, 1, 0)))
-POD_SPECS['LowerBack'] = ('tights', ('ray', (0, 0, CTRL_Z - CTRL_H / 2 - 0.030 - 0.010), (0, 1, 0)))
+LOWBACK_Z = 1.085                               # lumbar, just above the waistband
+POD_SPECS['LowerBack'] = ('shirt', ('ray', (0, 0, LOWBACK_Z), (0, 1, 0)))
 PODS = {}
 for k, (g, spec) in POD_SPECS.items():
     loc, nor = S(bs if g == 'shirt' else bt, spec)
@@ -245,18 +246,27 @@ def pod_layer(name, garment_key, garment, coll, r0, r1, mat, lift, thick, nr=2, 
     return ob
 
 for gk, garment, coll, pre in (('shirt', shirt, C_SG, 'FG_Shirt_Pods'), ('tights', tights, C_TG, 'FG_Tights_Pods')):
-    pod_layer(pre + '_HapticRing', gk, garment, coll, 0.0195, 0.0205, M['haptic'], 0.00008, 0.0001, nr=1, dash=(0.16, 0.10), skip=('LowerBack',))
+    pod_layer(pre + '_HapticRing', gk, garment, coll, 0.0195, 0.0205, M['haptic'], 0.00008, 0.0001, nr=1, dash=(0.16, 0.10))
     pod_layer(pre + '_Gap', gk, garment, coll, 0.0, 0.0065, M['pod_gap'], 0.00015, 0.0002, nr=4)
     pod_layer(pre + '_Ring', gk, garment, coll, 0.0085, 0.0100, M['pod_ring'], 0.00015, 0.00025, nr=2)
     pod_layer(pre + '_Dot', gk, garment, coll, 0.0, 0.0045, M['pod_dot'], 0.00035, 0.00025, nr=3)
 
-# ================================================================ controller on the back waistband
-c_loc, c_nor = S(bw, ('ray', (0, 0, CTRL_Z), (0, 1, 0)))
-# horizontal curvature of the waistband at the back
+# horizontal curvature of the waistband at the back (the shirt tab bends to it)
+c_back, _ = S(bw, ('ray', (0, 0, CTRL_Z), (0, 1, 0)))
 pl, _ = S(bw, ('ray', (CTRL_W / 2, 0, CTRL_Z), (0, 1, 0)))
 pr, _ = S(bw, ('ray', (-CTRL_W / 2, 0, CTRL_Z), (0, 1, 0)))
-sag = c_loc.y - (pl.y + pr.y) / 2
+sag = c_back.y - (pl.y + pr.y) / 2
 R_back = (CTRL_W / 2) ** 2 / (2 * max(sag, 1e-4))
+
+# ================================================================ controller on the outer left upper arm
+# long side along the arm, bent around it; sits between the bicep pod (front) and signal c (back of the arm)
+CTRL_ALONG = 0.23                              # m up the arm from the elbow
+arm_out = Vector((-up_arm.z, 0.0, up_arm.x)).normalized() * -1   # outward, square to the arm, horizontal-ish
+c_loc, c_nor = S(bs, ('ray', EL + up_arm * CTRL_ALONG, arm_out))
+c_x, c_y, _ = frame(c_nor, up_arm)                # x around the arm, y up the arm
+ql, _ = nearest(bs, c_loc + c_x * CTRL_H / 2); qr, _ = nearest(bs, c_loc - c_x * CTRL_H / 2)
+sag_arm = (c_loc - (ql + qr) / 2).dot(c_nor)
+R_arm = (CTRL_H / 2) ** 2 / (2 * max(sag_arm, 1e-4))
 def rounded_rect(w, h, r, seg=8):
     pts = []
     for cx, cy, a0 in ((w / 2 - r, h / 2 - r, 0), (-w / 2 + r, h / 2 - r, 90), (-w / 2 + r, -h / 2 + r, 180), (w / 2 - r, -h / 2 + r, 270)):
@@ -267,7 +277,7 @@ def rounded_rect(w, h, r, seg=8):
 def build_controller():
     remove_object('FG_Controller')
     bm = bmesh.new()
-    outline = rounded_rect(CTRL_W, CTRL_H, CTRL_R)
+    outline = rounded_rect(CTRL_H, CTRL_W, CTRL_R)
     back = [bm.verts.new((x, y, 0.0)) for x, y in outline]
     f = bm.faces.new(back)
     ext = bmesh.ops.extrude_face_region(bm, geom=[f])
@@ -284,22 +294,22 @@ def build_controller():
     for fc in bm.faces:
         fc.material_index = 1 if fc in edge_faces else 0
         fc.smooth = True
-    # bend to the back's curvature (parabolic, about the vertical axis)
+    # bend to the arm's curvature (parabolic, about the arm axis)
     for v in bm.verts:
-        v.co.z -= v.co.x ** 2 / (2 * R_back)
+        v.co.z -= v.co.x ** 2 / (2 * R_arm)
     me = bpy.data.meshes.new('FG_Controller'); bm.to_mesh(me); bm.free()
-    ob = bpy.data.objects.new('FG_Controller', me); C_TG.objects.link(ob)
+    ob = bpy.data.objects.new('FG_Controller', me); C_SG.objects.link(ob)
     me.materials.append(M['ctrl']); me.materials.append(M['ctrl_edge'])
-    x, y, z = frame(c_nor)
+    x, y, z = frame(c_nor, up_arm)
     mw = Matrix.Identity(4)
     mw.col[0][:3] = x; mw.col[1][:3] = y; mw.col[2][:3] = z; mw.col[3][:3] = c_loc + c_nor * 0.0004
     ob.matrix_world = mw
     wn = ob.modifiers.new('WeightedNormal', 'WEIGHTED_NORMAL'); wn.keep_sharp = True
     return ob
 ctrl = build_controller()
-print('controller at', tuple(round(v, 4) for v in c_loc), 'back radius', round(R_back, 3))
+print('controller at', tuple(round(v, 4) for v in c_loc), 'arm radius', round(R_arm, 3))
 
-# ================================================================ shirt tab (centre-back hem, under the controller)
+# ================================================================ shirt tab (centre-back hem, joins the shirt and tights seams)
 TAB_W, TAB_H, TAB_T = 0.024, 0.014, 0.0006
 def build_tab():
     remove_object('FG_Shirt_Tab')
@@ -377,20 +387,31 @@ for s, tag in ((1, 'L'), (-1, 'R')):
             ('ray', side(EL + Vector((0, 0.01, 0)), s), side((0.3, 1, 0.0), s)),
             ('ray', side(EL + (WR - EL) * 0.5, s), side((0.7, 0.75, 0.05), s)),
             pc[f'Wrist_{tag}']], C_SG, ends=(trap, pc[f'Wrist_{tag}']))
+    if s == 1:
+        # d. trap pod -> over the shoulder -> top of the controller; bottom of the controller -> bicep pod
+        c_top = nearest(bs, c_loc + c_y * (CTRL_W / 2 + 0.003))[0]
+        c_bot = nearest(bs, c_loc - c_y * (CTRL_W / 2 + 0.003))[0]
+        signal(f'FG_Signal_d_Trap{tag}_Controller', shirt, bs, [trap,
+                ('ray', side((0.21, 0.0, 1.43), s), side((0.6, -0.1, 0.8), s)),
+                c_top], C_SG, ends=(trap,))
+        signal(f'FG_Signal_d_Controller_Bicep{tag}', shirt, bs, [c_bot, pc[f'Bicep_{tag}']], C_SG, ends=(pc[f'Bicep_{tag}'],))
+        continue
     # d. trap pod -> down the front-outer upper arm -> bicep pod
     signal(f'FG_Signal_d_Trap{tag}_Bicep', shirt, bs, [trap,
             ('ray', side((0.21, 0.0, 1.425), s), side((0.55, -0.7, 0.45), s)),
             ('ray', side((0.26, -0.01, 1.28), s), side((0.6, -0.8, 0), s)),
             pc[f'Bicep_{tag}']], C_SG, ends=(trap, pc[f'Bicep_{tag}']))
-# b. shoulder-blade pod -> straight down the spine -> centre-back hem (onto the tab)
-t5 = pc['ShoulderBlades_T5']
-signal('FG_Signal_b_T5_Hem', shirt, bs, [t5, ('ray', (0, 0, 1.20), (0, 1, 0)), ('ray', (0, 0, HEM_Z + 0.026), (0, 1, 0))],
-       C_SG, ends=(t5,))
+# b. shoulder-blade pod -> straight down the spine -> lower-back pod -> centre-back hem (onto the tab)
+t5, lb = pc['ShoulderBlades_T5'], pc['LowerBack']
+signal('FG_Signal_b_T5_LowerBack', shirt, bs, [t5, ('ray', (0, 0, 1.20), (0, 1, 0)), lb], C_SG, ends=(t5, lb))
+signal('FG_Signal_b_LowerBack_Hem', shirt, bs, [lb, ('ray', (0, 0, HEM_Z + 0.026), (0, 1, 0))], C_SG, ends=(lb,))
 signal('FG_Signal_b_HemBand', hemband, bh, [('ray', (0, 0, HEM_Z + 0.0235), (0, 1, 0)), ('ray', (0, 0, HEM_Z + 0.002), (0, 1, 0))], C_SG)
 
-# e. controller -> around each side of the waistband -> outer hip -> outer thigh -> thigh pod -> shin pod
+# e. tab -> short drop down the centre back -> around each side of the waistband -> outer hip -> outer thigh
+#    -> thigh pod -> shin pod
+signal('FG_Signal_e_WaistCentre', waist, bw, [('ray', (0, 0, HEM_Z - 0.002), (0, 1, 0)), ('ray', (0, 0, CTRL_Z), (0, 1, 0))], C_TG)
 for s, tag in ((1, 'L'), (-1, 'R')):
-    wb = [('ray', side((CTRL_W / 2 + 0.004, 0, CTRL_Z), s), (0, 1, 0)),
+    wb = [('ray', side((0.0, 0, CTRL_Z), s), (0, 1, 0)),
           ('ray', side((0.10, 0, CTRL_Z), s), side((0.35, 1, 0), s)),
           ('ray', side((0.12, 0, CTRL_Z), s), side((1, 0.8, 0), s)),
           ('ray', side((0.12, 0, CTRL_Z), s), side((1, 0.05, 0), s)),
@@ -407,8 +428,4 @@ for s, tag in ((1, 'L'), (-1, 'R')):
             ('ray', side((0.16, 0.03, 0.44), s), side((0.8, -0.6, 0), s)),
             pc[f'Shin_{tag}']]
     signal(f'FG_Signal_e_Shin{tag}', tights, bt, knee, C_TG, ends=(pc[f'Thigh_{tag}'], pc[f'Shin_{tag}']))
-# f. controller -> straight down 30 mm -> lower-back pod
-lb = pc['LowerBack']
-signal('FG_Signal_f_Waist', waist, bw, [('ray', (0, 0, CTRL_Z - CTRL_H / 2 + 0.002), (0, 1, 0)), ('ray', (0, 0, WAIST_BOT + 0.003), (0, 1, 0))], C_TG)
-signal('FG_Signal_f_LowerBack', tights, bt, [('ray', (0, 0, WAIST_BOT - 0.003), (0, 1, 0)), lb], C_TG, ends=(lb,))
 print('pods', {k: tuple(round(c, 3) for c in v[1]) for k, v in PODS.items()})

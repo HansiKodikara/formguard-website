@@ -7,13 +7,8 @@ import type { SVGProps } from "react";
 const N = (cx: number, cy: number, r = 1.75) => <circle cx={cx} cy={cy} r={r} fill="currentColor" stroke="none" />;
 
 const ICONS = {
-  /** the suit: a body with nodes at every joint */
-  suit: (
-    <>
-      <path d="M9.4 3.2c.8 1.4 4.4 1.4 5.2 0L19 5l2.6 11.6-2.9.8L16.6 9.8V21H7.4V9.8L5.3 17.4l-2.9-.8L5 5z" />
-      {N(7.2, 6.4, 1.5)}{N(16.8, 6.4, 1.5)}{N(4.3, 12.2, 1.5)}{N(19.7, 12.2, 1.5)}
-    </>
-  ),
+  /** the suit: the shirt, plain */
+  suit: <path d="M9.4 3.2c.8 1.4 4.4 1.4 5.2 0L19 5l2.6 11.6-2.9.8L16.6 9.8V21H7.4V9.8L5.3 17.4l-2.9-.8L5 5z" />,
   /** a joint node */
   node: <><circle cx="12" cy="12" r="6" />{N(12, 12, 2.25)}</>,
   /** the haptic buzz: a node and its pulse */
@@ -29,6 +24,16 @@ const ICONS = {
       <circle cx="9" cy="8" r="4.6" />
       <path d="M10.6 12.3 11.6 21.5h3l-.8-10.4" />
       <path d="M16.4 4.4a6.6 6.6 0 0 1 0 7.2M19.4 2.4a10.4 10.4 0 0 1 0 11.2" />
+    </>
+  ),
+  /** a personal trainer: a coach and their clipboard */
+  trainer: (
+    <>
+      <circle cx="8" cy="4" r="1.9" />
+      <path d="M8 6.6V14l-1.8 7.5M8 14l1.8 7.5M4.4 10.2 8 8.4l4.4 2.4" />
+      <path d="M13.5 8.5h7v10h-7z" />
+      <path d="M15.5 12h3M15.5 14.8h3" />
+      {N(8, 14)}
     </>
   ),
   /** a phone camera and its one-sided field of view */
@@ -94,6 +99,8 @@ const ICONS = {
   ),
   /** a good rep */
   check: <path d="M4.5 12.6 9.8 17.8 19.8 6.4" />,
+  /** not this one: the comparison table's 'no' */
+  cross: <path d="M6 6l12 12M18 6 6 18" />,
   /** a flagged rep */
   flag: <><path d="M6 21.5V2.5" /><path d="M6 3h13.5l-3.4 4.6 3.4 4.6H6z" fill="currentColor" /></>,
   arrow: <path d="M3.5 12h16M13.5 6l6 6-6 6" />,
