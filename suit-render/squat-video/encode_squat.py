@@ -3,7 +3,7 @@ soft floor shadow under the feet, then encoded to an MP4 by Blender's own FFmpeg
 
     B=/Applications/Blender.app/Contents/MacOS/Blender
     $B -b --factory-startup --python suit-render/squat-video/encode_squat.py [-- --out preview.mp4]
-    $B -b --factory-startup --python suit-render/squat-video/encode_squat.py -- --set knee
+    $B -b --factory-startup --python suit-render/squat-video/encode_squat.py -- --set curl   (or knee)
 
 Reads  squat-video/renders/video/squat-NNN.png (transparent) and squat-video/floor-video.json (the shadow's box in
        each frame, from render_squat.py --video --points)
@@ -17,8 +17,8 @@ import bpy, os, sys, json, shutil, numpy as np
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# --set knee: the knee frames (render_squat.py --knee) instead, composited the same way and written as WebP frames
-# public/squat/knee-NN.webp (no video)
+# --set knee / curl: the knee or curl frames (render_squat.py --knee / --curl) instead, composited the same way and
+# written as WebP frames public/demo/SET-NN.webp (no video)
 SET = argv[argv.index('--set') + 1] if '--set' in argv else 'video'
 SRC = os.path.join(HERE, 'renders', SET)
 COMP = os.path.join(SRC, 'comp'); STILL_DIR = os.path.join(SRC, 'stills')
@@ -49,11 +49,15 @@ for i, f in enumerate(frames):
     img = bpy.data.images.load(os.path.join(SRC, f))
     px = raw(img); h, w = px.shape[:2]
     # rows run bottom-up in Blender; the floor box is 0-1 from the top
-    x0, x1, y0, y1 = floor[int(f[6:9]) - 1]
-    xs = (np.arange(w) + 0.5) / w; ys = 1 - (np.arange(h) + 0.5) / h
-    cx, cy, rx, ry = (x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2
-    d = np.sqrt(((xs[None, :] - cx) / rx) ** 2 + ((ys[:, None] - cy) / ry) ** 2)
-    sa = np.interp(d, [0.0, 0.55, 1.0], [0.32, 0.12, 0.0])[..., None]
+    box = floor[int(f[6:9]) - 1]
+    if box is None:                                  # the feet are out of the shot
+        sa = np.zeros((h, w, 1))
+    else:
+        x0, x1, y0, y1 = box
+        xs = (np.arange(w) + 0.5) / w; ys = 1 - (np.arange(h) + 0.5) / h
+        cx, cy, rx, ry = (x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2
+        d = np.sqrt(((xs[None, :] - cx) / rx) ** 2 + ((ys[:, None] - cy) / ry) ** 2)
+        sa = np.interp(d, [0.0, 0.55, 1.0], [0.32, 0.12, 0.0])[..., None]
     ground = CHALK * (1 - sa) + SHADOW * sa
     a = px[..., 3:4]
     out = np.concatenate([px[..., :3] * a + ground * (1 - a), np.ones_like(a)], axis=2)
@@ -65,13 +69,14 @@ for i, f in enumerate(frames):
     if i % 60 == 0: print(f'[encode] composited {i + 1}/{len(frames)}', flush=True)
 
 n = len(frames)
-if SET == 'knee':
+if SET in ('knee', 'curl'):
     import subprocess
-    pub = os.path.dirname(OUT)
+    pub = os.path.abspath(os.path.join(HERE, '..', '..', 'public', 'demo'))
+    os.makedirs(pub, exist_ok=True)
     for f in frames:
         subprocess.run(['cwebp', '-quiet', '-q', '80', '-sharp_yuv', '-metadata', 'none', '-resize', '960', '0',
-                        os.path.join(COMP, f), '-o', os.path.join(pub, f'knee-{int(f[6:9]):02d}.webp')], check=True)
-    print(f'[encode] {n} knee frames -> {pub}', flush=True)
+                        os.path.join(COMP, f), '-o', os.path.join(pub, f'{SET}-{int(f[6:9]):02d}.webp')], check=True)
+    print(f'[encode] {n} {SET} frames -> {pub}', flush=True)
     raise SystemExit(0)
 for k, p in enumerate(STILLS if not PREVIEW else []):
     shutil.copy(os.path.join(COMP, frames[round(p * (n - 1))]), os.path.join(STILL_DIR, f'still-{k}.png'))

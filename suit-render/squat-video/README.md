@@ -20,16 +20,24 @@ The poses come from a motion library of two reps:
   - It is fully in at the bottom (frame 56) and through the first half of the drive.
   - It pushes back out before lockout.
 
-## The knee frames
+## The curl frames
 
-"How it works" on the site uses 12 frames rendered with `--knee`. The camera is fixed and close on the legs at the bottom of the squat, landscape. The pose is held, and only the left knee swings in about the line from hip to ankle (up to `KNEE_IN`, 28°). On the page, the visitor drags the knee in and the suit's alert appears past the normal range.
+"How it works" on the site uses 12 frames rendered with `--curl` (`fg_curl.py`):
+
+- **What's shown:** just his left arm, mid-way through a dumbbell curl, seen square from his left. The upper arm is by his side, the forearm level, the palm up, and the fingers are solved round the handle.
+- **The fault:** the upper arm swings forward up to `CURL_DRIFT` (40°), so the elbow leaves his side.
+- **The rest of him:** body and suit are masked to the arm, and the arm fades out towards the shoulder, so the cut never shows.
+
+On the page, the visitor drags the elbow forward and the suit's alert appears past the normal range.
 
 ```sh
 B=/Applications/Blender.app/Contents/MacOS/Blender
-$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --knee --points src/viz/kneeFrames.json
-$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --knee --samples 96   # about 1 min
-$B -b --factory-startup --python suit-render/squat-video/encode_squat.py -- --set knee                            # public/squat/knee-NN.webp
+$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --curl --points src/viz/curlFrames.json
+$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --curl --samples 96   # under a minute
+$B -b --factory-startup --python suit-render/squat-video/encode_squat.py -- --set curl                            # public/demo/curl-NN.webp
 ```
+
+`--knee` makes the same kind of frames for the squat: the legs at the bottom, with the left knee caving.
 
 The video (below) is no longer on the site, but the pipeline still works.
 

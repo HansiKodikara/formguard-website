@@ -1,6 +1,6 @@
 import { Section } from "../components/Section";
 import { Kicker } from "../components/Kicker";
-import { KneeDemo } from "../components/KneeDemo";
+import { CurlDemo } from "../components/CurlDemo";
 import type { Caps } from "../lib/env";
 
 /** Four steps, a few words each; the third is the one you can try, right below. */
@@ -29,7 +29,7 @@ export function HowItWorks({ caps }: { caps: Caps }) {
           ))}
         </ol>
 
-        <KneeDemo reduced={caps.reduced} className="mt-14" />
+        <CurlDemo reduced={caps.reduced} className="mt-14" />
       </div>
     </Section>
   );
