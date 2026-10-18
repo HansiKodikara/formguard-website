@@ -31,6 +31,16 @@ const ICONS = {
       <path d="M16.4 4.4a6.6 6.6 0 0 1 0 7.2M19.4 2.4a10.4 10.4 0 0 1 0 11.2" />
     </>
   ),
+  /** a personal trainer: a coach and their clipboard */
+  trainer: (
+    <>
+      <circle cx="8" cy="4" r="1.9" />
+      <path d="M8 6.6V14l-1.8 7.5M8 14l1.8 7.5M4.4 10.2 8 8.4l4.4 2.4" />
+      <path d="M13.5 8.5h7v10h-7z" />
+      <path d="M15.5 12h3M15.5 14.8h3" />
+      {N(8, 14)}
+    </>
+  ),
   /** a phone camera and its one-sided field of view */
   phone: (
     <>
