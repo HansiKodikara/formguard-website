@@ -74,17 +74,27 @@ function HowStage({ st, compact = false }: { st: HowState; compact?: boolean }) 
 }
 
 /* ─────────────────────────────── desktop: pinned, scroll-driven ─────────────────────────────── */
+/** how many screens of scrolling the pinned story takes */
+const PIN_SCREENS = 2.4;
 function HowPinned() {
   const pin = useRef<HTMLDivElement>(null);
   const trig = useRef<ScrollTrigger | null>(null);
   const [st, setSt] = useState(() => howPose(0));
 
+  // the story eases towards the scroll position rather than jumping to it, so a flick of the wheel plays as motion
   useGSAP(() => {
+    let target = 0, shown = 0, raf = 0;
+    const tick = () => {
+      shown += (target - shown) * 0.14;
+      if (Math.abs(target - shown) < 0.0004) shown = target;
+      setSt(howPose(shown));
+      raf = shown === target ? 0 : requestAnimationFrame(tick);
+    };
     trig.current = ScrollTrigger.create({
-      trigger: pin.current, start: "top top", end: () => "+=" + innerHeight * 4.2, pin: true, anticipatePin: 1,
-      onUpdate: (self) => setSt(howPose(self.progress)),
+      trigger: pin.current, start: "top top", end: () => "+=" + innerHeight * PIN_SCREENS, pin: true, anticipatePin: 1,
+      onUpdate: (self) => { target = self.progress; if (!raf) raf = requestAnimationFrame(tick); },
     });
-    return () => trig.current?.kill();
+    return () => { cancelAnimationFrame(raf); trig.current?.kill(); };
   });
 
   const jump = (i: number) => {
@@ -99,7 +109,7 @@ function HowPinned() {
         {/* the stage: columns 5–12 */}
         <div className="absolute inset-y-0 right-0 left-[38%] flex items-center justify-center gap-6 pb-10 pl-6 pr-[var(--margin)] pt-[calc(var(--header-h)+2rem)]">
           {/* the lifter, rendered: scrolling scrubs the rep */}
-          <SquatView st={st} className={`h-[min(calc(100svh-var(--header-h)-8rem),38rem)] shrink-0 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`} />
+          <SquatView st={st} className={`h-[min(calc(100svh-var(--header-h)-6rem),42rem)] shrink-0 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`} />
           <div className={`w-full min-w-0 max-w-[30rem] rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-6 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`}>
             <HowStage st={st} compact />
           </div>

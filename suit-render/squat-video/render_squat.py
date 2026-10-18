@@ -1,5 +1,6 @@
 """Back-squat frames for the website's 'How it works' scroll: the FormGuard suit on the rigged mannequin, rendered in
-Cycles in the product renders' studio. Two passes, rendered as stills:
+Cycles with the product renders' studio lights, on a transparent background
+(for the page's own background, which draws the floor shadow; --sweep for the dark studio sweep). Two passes, rendered as stills:
 
     frames  1-37  a clean rep: standing -> bottom (frame 19) -> standing
     frames 38-74  the same rep with the left knee caving in: it starts to go late in the descent, is fully in at the
@@ -14,6 +15,7 @@ Options:
     --res 900x1200     output size (default 900 x 1200, 3:4)
     --out DIR          where the PNGs go (default squat-video/renders, git-ignored)
     --dqs              keep 'preserve volume' skinning (the bench video's), for comparison
+    --sweep            render on the product renders' dark studio sweep instead of a transparent background
     --simple           pose from the simple depth curves instead of the MyoSuite motion (squat-motion.json)
     --motion FILE      MyoSuite motion to use (default squat-video/squat-motion.json, from myo_squat.py)
     --workbench        flat viewport shading instead of Cycles (motion check only)
@@ -301,6 +303,10 @@ def studio(rig):
         ob.location = T @ local[n]
         ob.rotation_euler = (Vector((0, 0, 1.0)) - ob.location).normalized().to_track_quat('-Z', 'Y').to_euler()
     backdrop.matrix_world = Matrix.Rotation(rot, 4, 'Z')
+    if not opt('--sweep'):
+        # no backdrop: a transparent frame for the page's own background (the site draws the floor shadow; the feet
+        # never move)
+        backdrop.hide_render = True
     print(f'[squat] camera at {dist:.2f} m, bearing {CAM["az"]} deg')
 
 def res():
@@ -321,10 +327,12 @@ with bpy.context.temp_override(scene=SC, view_layer=SC.view_layers[0]):
     studio(rig)
 print(f'[squat] built in {time.time() - t0:.0f} s', flush=True)
 
-SC.view_settings.exposure = -2.7                 # the product renders use -3.2 with the same wattages; a touch brighter for the web
+SC.view_settings.exposure = -2.7 if opt('--sweep') else -2.2   # product renders: -3.2, same wattages; brighter for a light page
 W, Hh = res()
 SC.render.resolution_x, SC.render.resolution_y, SC.render.resolution_percentage = W, Hh, 100
 SC.render.image_settings.file_format = 'PNG'; SC.render.image_settings.color_depth = '16'
+SC.render.film_transparent = not opt('--sweep')
+SC.render.image_settings.color_mode = 'RGB' if opt('--sweep') else 'RGBA'
 if opt('--workbench'):
     SC.render.engine = 'BLENDER_WORKBENCH'
     sh = SC.display.shading; sh.light = 'STUDIO'; sh.color_type = 'MATERIAL'; sh.show_shadows = True
@@ -348,9 +356,14 @@ if isinstance(opt('--points'), str):
         k = rig.matrix_world @ rig.pose.bones['shin.L'].head
         v = world_to_camera_view(SC, SC.camera, k)
         knee.append([round(v.x, 4), round(1 - v.y, 4)])
+    # the floor under the feet (they never move), for the site's contact shadow: heel to toe of both feet
+    SC.frame_set(1)
+    fp = [world_to_camera_view(SC, SC.camera, rig.matrix_world @ rig.pose.bones[f'foot.{sd}'].head) for sd in ('L', 'R')]
+    fp += [world_to_camera_view(SC, SC.camera, rig.matrix_world @ rig.pose.bones[f'foot.{sd}'].tail) for sd in ('L', 'R')]
+    floor = [round(min(v.x for v in fp), 4), round(max(v.x for v in fp), 4), round(1 - max(v.y for v in fp), 4), round(1 - min(v.y for v in fp), 4)]
     with open(opt('--points'), 'w') as fh:
         json.dump({'frames': len(knee), 'clean': [CLEAN.start, CLEAN.stop - 1], 'cave': [CAVE.start, CAVE.stop - 1],
-                   'size': list(res()), 'kneeL': knee}, fh, separators=(',', ':'))
+                   'size': list(res()), 'floor': floor, 'kneeL': knee}, fh, separators=(',', ':'))
     print('[squat] points ->', opt('--points')); raise SystemExit(0)
 for f in frames:
     t = time.time()

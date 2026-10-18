@@ -9,7 +9,7 @@ mkdir -p "$OUT"
 for f in "$SRC"/squat-*.png; do
   n=$(basename "$f" .png | sed 's/squat-//')
   for w in 720 450; do
-    cwebp -quiet -q 80 -sharp_yuv -metadata none -resize "$w" 0 "$f" -o "$OUT/$w-$n.webp"
+    cwebp -quiet -q 74 -alpha_q 80 -sharp_yuv -metadata none -resize "$w" 0 "$f" -o "$OUT/$w-$n.webp"
   done
 done
 echo "$(ls "$OUT" | wc -l | tr -d ' ') files, $(du -sh "$OUT" | cut -f1)"
