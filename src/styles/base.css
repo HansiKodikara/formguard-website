@@ -119,3 +119,5 @@ body {
   transition: opacity 120ms linear;
 }
 @keyframes fg-ripple { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.2); opacity: 0; } }
+/* the suit's buzz at a joint: a tight pulse, out from the ring */
+@keyframes fg-buzz { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.6); opacity: 0; } }

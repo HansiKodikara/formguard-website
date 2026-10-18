@@ -20,6 +20,19 @@ The poses come from a motion library of two reps:
   - It is fully in at the bottom (frame 56) and through the first half of the drive.
   - It pushes back out before lockout.
 
+## The knee frames
+
+"How it works" on the site uses 12 frames rendered with `--knee`. The camera is fixed and close on the legs at the bottom of the squat, landscape. The pose is held, and only the left knee swings in about the line from hip to ankle (up to `KNEE_IN`, 28°). On the page, the visitor drags the knee in and the suit's alert appears past the normal range.
+
+```sh
+B=/Applications/Blender.app/Contents/MacOS/Blender
+$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --knee --points src/viz/kneeFrames.json
+$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --knee --samples 96   # about 1 min
+$B -b --factory-startup --python suit-render/squat-video/encode_squat.py -- --set knee                            # public/squat/knee-NN.webp
+```
+
+The video (below) is no longer on the site, but the pipeline still works.
+
 ## How the motion is made
 
 The squat's form follows the site's earlier Anny lifter:

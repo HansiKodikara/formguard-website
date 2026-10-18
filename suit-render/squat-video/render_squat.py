@@ -15,6 +15,8 @@ the camera moves through SHOTS. The poses come from a motion library keyed on fr
 Options:
     --frames 19,56     only these output frames (comma list or a-b range; default all)
     --story 170        how many output frames the take has (stills, scroll-scrubbed)
+    --knee             the knee frames instead: one shot at the bottom, the left knee swinging from over the toes
+                       to caved in 12 steps (into renders/knee), for 'How it works'
     --video            frames for the video instead: 30 fps over the story's 26 s, evenly in time (into
                        renders/video; encode_squat.py lays them on the page's colour and makes the MP4)
     --timeline FILE    the story (default squat-video/timeline.json)
@@ -58,8 +60,9 @@ SC = bpy.data.scenes['Scene']
 if 'FG_Bench' in bpy.data.scenes: bpy.data.scenes.remove(bpy.data.scenes['FG_Bench'])
 bpy.context.window_manager  # noqa
 VIDEO = bool(opt('--video'))
+KNEE = bool(opt('--knee'))                    # the knee frames instead (see KNEE_SHOT)
 FPS, STORY_S = 30, 26.0                       # the video: the site's story in 26 s (src/sections/HowItWorks.tsx)
-OUT = os.path.abspath(opt('--out') or os.path.join(HERE, 'renders', 'video' if VIDEO else ''))
+OUT = os.path.abspath(opt('--out') or os.path.join(HERE, 'renders', 'video' if VIDEO else 'knee' if KNEE else ''))
 os.makedirs(OUT, exist_ok=True)
 
 def coll(name):
@@ -247,6 +250,38 @@ def set_frame_pose(rig, knee_poles, f):
             pole.location = (x, -1.2, 0.5)
         pole.keyframe_insert('location', frame=f)
 
+# The knee frames: the interactive 'move his knee' in 'How it works'. One fixed shot at the bottom of the squat
+# (motion frame 19), the whole pose held, and only the left knee swinging in about the line from hip to ankle, up to
+# KNEE_IN degrees (the feet stay planted, so it reads as the knee caving). Keyed on frames KNEE0 + k.
+KNEE0, KNEE_N, KNEE_IN = 101, 12, 28.0
+KNEE_SHOT = dict(az=6.0, el=6.0, zoom=0.50, focus=1.0)    # just the legs: hips to feet, landscape (KNEE_RES)
+KNEE_DROP = 0.13                                            # aim this far below the knees, so the feet are in
+KNEE_RES = '1200x900'
+
+def key_knee_frames(rig, knee_poles):
+    obs = [rig] + [p for p, _ in knee_poles.values()]
+    for ob in obs:
+        act = ob.animation_data.action if ob.animation_data else None
+        if not act: continue
+        fcs = list(act.fcurves) if hasattr(act, 'fcurves') else [fc for l in act.layers for st in l.strips for bag in st.channelbags for fc in bag.fcurves]
+        for fc in fcs:
+            a = fc.evaluate(19)
+            for k in range(KNEE_N):
+                fc.keyframe_points.insert(KNEE0 + k, a).interpolation = 'LINEAR'
+    SC.frame_set(19); bpy.context.view_layer.update()
+    pole = knee_poles['L'][0]
+    hip = rig.matrix_world @ rig.pose.bones['thigh.L'].head
+    ank = rig.matrix_world @ rig.pose.bones['foot.L'].head
+    axis = (ank - hip).normalized()
+    p0 = pole.location.copy()
+    for sign in (1, -1):                                   # whichever way takes the knee towards the midline
+        q = hip + Matrix.Rotation(math.radians(10 * sign), 3, axis) @ (p0 - hip)
+        if q.x < p0.x: break
+    for k in range(KNEE_N):
+        t = k / (KNEE_N - 1); t = t * t * (3 - 2 * t)
+        pole.location = hip + Matrix.Rotation(math.radians(KNEE_IN * t * sign), 3, axis) @ (p0 - hip)
+        pole.keyframe_insert('location', frame=KNEE0 + k)
+
 def animate(rig, knee_poles):
     for f in list(CLEAN) + list(CAVE):
         set_frame_pose(rig, knee_poles, f)
@@ -336,7 +371,14 @@ class Studio:
         sh = shot_at(p)
         (t0, d0), (t1, d1) = self.fits[i], self.fits[i + 1]
         tgt = t0.lerp(t1, k); dist = (d0 + (d1 - d0) * k) * sh['zoom']
-        tgt = tgt.lerp(self.knees, sh['focus'])
+        return self.place(sh, tgt.lerp(self.knees, sh['focus']), dist)
+
+    def aim_shot(self, sh):
+        """A fixed shot (az, el, zoom, focus as in SHOTS)."""
+        tgt, dist = self.fit(sh['az'], sh['el'])
+        return self.place(sh, tgt.lerp(self.knees - Vector((0, 0, KNEE_DROP)), sh['focus']), dist * sh['zoom'])
+
+    def place(self, sh, tgt, dist):
         v = cam_dir(sh['az'], sh['el'])
         self.cam.location = tgt + v * dist
         self.cam.rotation_euler = (-v).to_track_quat('-Z', 'Y').to_euler()
@@ -357,7 +399,7 @@ class Studio:
         return sh
 
 def res():
-    r = opt('--res') or '900x1200'
+    r = opt('--res') or (KNEE_RES if KNEE else '900x1200')
     return tuple(int(x) for x in r.split('x'))
 
 # ================================================================ the story: output frames along the scroll
@@ -396,7 +438,7 @@ def story_even(n):
 
 def show(rig, studio, p, m):
     f = int(math.floor(m)); SC.frame_set(f, subframe=m - f)
-    return studio.aim(p)
+    return studio.aim_shot(KNEE_SHOT) if p is None else studio.aim(p)
 
 # ================================================================ run
 t0 = time.time()
@@ -405,6 +447,7 @@ with bpy.context.temp_override(scene=SC, view_layer=SC.view_layers[0]):
     SC.frame_set(1)
     bar, knee_poles = pose_rig(rig, C, body)
     animate(rig, knee_poles)
+    if KNEE: key_knee_frames(rig, knee_poles)
     SC.frame_set(1)
     grip(rig, bpy.data.objects['FG_Bar'], BAR_R)
     M = equip_materials()
@@ -427,7 +470,7 @@ if opt('--workbench'):
 else:
     SC.render.engine = 'CYCLES'
     SC.cycles.samples = int(opt('--samples', 64)); SC.cycles.use_denoising = True; SC.cycles.use_adaptive_sampling = True
-STORY = story_even(round(STORY_S * FPS)) if VIDEO else story(int(opt('--story', 170)))
+STORY = [(None, KNEE0 + k) for k in range(KNEE_N)] if KNEE else story_even(round(STORY_S * FPS)) if VIDEO else story(int(opt('--story', 170)))
 N = len(STORY)
 fr = opt('--frames')
 if isinstance(fr, str):
@@ -455,7 +498,11 @@ if isinstance(opt('--points'), str):
         floor.append([round(min(x for x, _ in ring), 4), round(max(x for x, _ in ring), 4),
                       round(min(y for _, y in ring), 4), round(max(y for _, y in ring), 4)])
     with open(opt('--points'), 'w') as fh:
-        if VIDEO:
+        if KNEE:
+            json.dump({'frames': N, 'size': list(res()), 'kneeL': knee}, fh, separators=(',', ':'))
+            with open(os.path.join(HERE, 'floor-knee.json'), 'w') as fl:
+                json.dump({'floor': floor}, fl, separators=(',', ':'))
+        elif VIDEO:
             json.dump({'fps': FPS, 'frames': N, 'size': list(res()), 'kneeL': knee}, fh, separators=(',', ':'))
             # the floor shadow is drawn into the video by encode_squat.py
             with open(os.path.join(HERE, 'floor-video.json'), 'w') as fl:
@@ -470,4 +517,4 @@ for i in frames:
     show(rig, studio, p, m)
     SC.render.filepath = os.path.join(OUT, f'squat-{i:03d}.png')
     bpy.ops.render.render(write_still=True, scene=SC.name)
-    print(f'[squat] frame {i}/{N} (scroll {p:.3f}, motion {m:.2f}) in {time.time() - t:.0f} s', flush=True)
+    print(f'[squat] frame {i}/{N} (scroll {p if p is not None else -1:.3f}, motion {m:.2f}) in {time.time() - t:.0f} s', flush=True)

@@ -3,6 +3,7 @@ soft floor shadow under the feet, then encoded to an MP4 by Blender's own FFmpeg
 
     B=/Applications/Blender.app/Contents/MacOS/Blender
     $B -b --factory-startup --python suit-render/squat-video/encode_squat.py [-- --out preview.mp4]
+    $B -b --factory-startup --python suit-render/squat-video/encode_squat.py -- --set knee
 
 Reads  squat-video/renders/video/squat-NNN.png (transparent) and squat-video/floor-video.json (the shadow's box in
        each frame, from render_squat.py --video --points)
@@ -12,13 +13,15 @@ Writes squat-video/renders/video/comp/ (the frames on Chalk), public/squat/squat
 The composite works on the PNGs' own (display) values, as the browser did when the frames were transparent: the
 shadow is the same radial gradient the page used to draw, and the video passes through untouched (Standard view).
 """
-import bpy, os, json, shutil, numpy as np
+import bpy, os, sys, json, shutil, numpy as np
+argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, 'renders', 'video')
+# --set knee: the knee frames (render_squat.py --knee) instead, composited the same way and written as WebP frames
+# public/squat/knee-NN.webp (no video)
+SET = argv[argv.index('--set') + 1] if '--set' in argv else 'video'
+SRC = os.path.join(HERE, 'renders', SET)
 COMP = os.path.join(SRC, 'comp'); STILL_DIR = os.path.join(SRC, 'stills')
-import sys
-argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 # --out FILE: write the MP4 elsewhere (a preview while the frames are still rendering; the last one is skipped)
 PREVIEW = argv[argv.index('--out') + 1] if '--out' in argv else None
 OUT = os.path.abspath(PREVIEW or os.path.join(HERE, '..', '..', 'public', 'squat', 'squat.mp4'))
@@ -30,7 +33,7 @@ STILLS = [0.17, 0.33, 0.57, 0.64]                     # src/sections/HowItWorks.
 
 frames = sorted(f for f in os.listdir(SRC) if f.startswith('squat-') and f.endswith('.png'))
 if PREVIEW: frames = frames[:-1]
-floor = json.load(open(os.path.join(HERE, 'floor-video.json')))['floor']
+floor = json.load(open(os.path.join(HERE, f'floor-{SET}.json')))['floor']
 for d in (COMP, STILL_DIR):
     shutil.rmtree(d, ignore_errors=True); os.makedirs(d)
 
@@ -62,6 +65,14 @@ for i, f in enumerate(frames):
     if i % 60 == 0: print(f'[encode] composited {i + 1}/{len(frames)}', flush=True)
 
 n = len(frames)
+if SET == 'knee':
+    import subprocess
+    pub = os.path.dirname(OUT)
+    for f in frames:
+        subprocess.run(['cwebp', '-quiet', '-q', '80', '-sharp_yuv', '-metadata', 'none', '-resize', '960', '0',
+                        os.path.join(COMP, f), '-o', os.path.join(pub, f'knee-{int(f[6:9]):02d}.webp')], check=True)
+    print(f'[encode] {n} knee frames -> {pub}', flush=True)
+    raise SystemExit(0)
 for k, p in enumerate(STILLS if not PREVIEW else []):
     shutil.copy(os.path.join(COMP, frames[round(p * (n - 1))]), os.path.join(STILL_DIR, f'still-{k}.png'))
 
