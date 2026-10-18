@@ -207,10 +207,18 @@ export function CurlStage({ m, className = "" }: { m: Moment; className?: string
       <span aria-hidden className="fg-callout" style={{ left: `${(ex + 66 / 300) * 100}%`, top: `${(ey + 26 / 400) * 100}%`, transform: "translateY(-50%)", color: "var(--ink)", opacity: moved ? 0 : 1 }}>
         Elbow · L
       </span>
-      {/* rep 2: under where the elbow belongs */}
-      <span aria-hidden className="fg-callout" style={{ left: `${HOME[0] * 100}%`, top: `${(HOME[1] + 10 / 400) * 100}%`, transform: "translateX(-50%)", color: "var(--ink-muted)", opacity: moved ? 1 : 0 }}>
-        Elbow belongs here
+      {/* rep 2: beside where the elbow belongs */}
+      <span aria-hidden className="fg-callout" style={{ left: `${(HOME[0] + 8 / 300) * 100}%`, top: `${HOME[1] * 100}%`, transform: "translateY(-50%)", color: "var(--ink-muted)", opacity: moved ? 1 : 0 }}>
+        Belongs here
       </span>
+      {/* the buzz, at the elbow where the eye already is: just under the ring, moving with it */}
+      {m.alert && (
+        <div aria-hidden className="absolute w-max max-w-[60%] -translate-x-1/2 rounded-sm border border-[var(--signal-ink)] bg-[var(--color-chalk)] px-2.5 py-1.5 text-center text-[var(--signal-ink)] motion-safe:animate-[fg-fade_200ms_ease-out]"
+          style={{ left: `${ex * 100}%`, top: `${(ey + 26 / 400) * 100}%` }}>
+          <p className="t-label flex items-center justify-center gap-1.5"><span className="block size-1.5 shrink-0 rounded-full bg-current" />Buzz · elbow drifting forward</p>
+          <p className="mt-0.5 text-[13px] leading-tight">Keep it at your side.</p>
+        </div>
+      )}
       {/* rep 2: what the dotted paths are */}
       <ul aria-hidden className="t-mono absolute bottom-[4%] left-[6%] space-y-1 text-[11px] text-[var(--ink-muted)] transition-opacity duration-300" style={{ opacity: m.rep === 2 ? 1 : 0 }}>
         <li className="flex items-center gap-2"><svg width="22" height="4"><line x1="2" y1="2" x2="20" y2="2" stroke="var(--color-iron)" strokeWidth="2" strokeLinecap="round" strokeDasharray="0 5" opacity="0.3" /></svg>Rep 1 · your normal</li>
@@ -225,7 +233,7 @@ export function CurlCue({ m, className = "" }: { m: Moment; className?: string }
   return (
     <p aria-live="polite" className={`t-label flex min-h-6 items-center gap-2 transition-colors ${m.alert ? "text-[var(--signal-ink)]" : m.done ? "text-[var(--ink)]" : "text-[var(--ink-muted)]"} ${className}`}>
       {m.alert
-        ? <><span aria-hidden className="block size-2 shrink-0 rounded-full bg-current" />Buzz · left elbow drifting forward. Keep it at your side.</>
+        ? <><span aria-hidden className="block size-2 shrink-0 rounded-full bg-current" />Rep 2 · left elbow out of your normal</>
         : m.done
           ? <><span aria-hidden className="block size-2 shrink-0 rounded-full bg-[var(--signal)]" />Next set · keep your left elbow at your side</>
           : <><span aria-hidden className="block size-2 shrink-0 rounded-full border-[1.5px] border-current" />Rep {m.rep} · in your normal</>}
