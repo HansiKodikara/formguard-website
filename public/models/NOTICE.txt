@@ -1,0 +1,11 @@
+FormGuard 3D lifter — third-party notice
+
+The body meshes in this folder (body-*.bin, body.json) were generated offline with
+Anny (https://github.com/naver/anny), Copyright (C) 2025 NAVER Corporation,
+licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+
+Anny's body assets are adapted from MakeHuman (via MPFB2) and released under
+CC0 1.0 Universal. Only Anny's free "anny" topology and rig were used; no
+non-commercial (SMPL/SMPL-X) assets were used.
+
+Generator: scripts/figure/export_body.py

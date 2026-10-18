@@ -1,18 +1,11 @@
 import { useRef, useState } from "react";
 import { Section } from "../components/Section";
 import { Kicker } from "../components/Kicker";
-import { Readout } from "../components/Readout";
 import { RepStrip } from "../components/RepStrip";
-import { Icon } from "../components/Icon";
 import { SquatStill, SquatView } from "../components/SquatView";
-import { Waveform } from "../components/Waveform";
 import { ScrollTrigger, useGSAP } from "../lib/gsap";
 import type { Caps } from "../lib/env";
-import { RepTrace } from "../viz/RepTrace";
-import { JointGrid, ONLINE_ORDER } from "../viz/JointGrid";
-import type { RepParams } from "../viz/signal";
-import { repDepth } from "../viz/lift";
-import { howPose, VALGUS, type HowState } from "../viz/how";
+import { howPose } from "../viz/how";
 
 export const STEPS = [
   { title: "Put on the suit.", body: "Sensors sit at every joint, on both sides of your body. Put it on and do a warm-up set." },
@@ -27,50 +20,6 @@ export const STEP_STILLS = [0.17, 0.33, 0.57, 0.64, 0.9];
 
 export function HowItWorks({ caps }: { caps: Caps }) {
   return caps.pin ? <HowPinned /> : <HowStatic />;
-}
-
-/** The reps of the story: two warm-up reps (set 1), then set 2, where rep 7's left knee caves. */
-const warmup = (i: number): RepParams => ({ depth: 1, cave: 0, seed: 40 + i });
-const set2 = (n: number): RepParams => ({ depth: repDepth(n), cave: n === 7 ? VALGUS : 0, seed: n });
-
-/** What the instrument shows at one moment of the story. */
-function HowStage({ st, compact = false }: { st: HowState; compact?: boolean }) {
-  if (st.step === 0) {
-    const lit = Math.round(st.nodes * ONLINE_ORDER.length);
-    return (
-      <div>
-        <Readout status={lit === ONLINE_ORDER.length ? "live" : "neutral"}>{lit === ONLINE_ORDER.length ? "All joints · online" : `Joints coming online · ${lit}/${ONLINE_ORDER.length}`}</Readout>
-        <JointGrid className="mt-5" state={(j) => (ONLINE_ORDER.indexOf(j) < lit ? "on" : "off")} />
-      </div>
-    );
-  }
-  const warm = st.step === 1;
-  const done = warm ? Array.from({ length: st.rep - 1 }, (_, i) => warmup(i)) : Array.from({ length: st.rep - 1 }, (_, i) => set2(i + 1));
-  const live = st.step === 4 ? null : { r: warm ? warmup(st.rep - 1) : set2(st.rep), p: st.phase };
-  return (
-    <div>
-      <div className="flex flex-wrap items-center gap-2">
-        {warm
-          ? <Readout status="live">Learning your normal · warm-up rep {Math.max(1, st.rep)}/2</Readout>
-          : <Readout status="live">Set 2 · back squat · rep {String(st.rep).padStart(2, "0")}</Readout>}
-        {st.flag && <Readout status="fault">Rep 07 · Knee valgus · L · {Math.max(4, Math.round(st.valgus))}°</Readout>}
-        {!warm && !st.flag && st.rep >= 7 && st.good && <Readout status="clear">Rep {String(st.rep).padStart(2, "0")} · Knees out · in range</Readout>}
-      </div>
-      <RepTrace className={compact ? "mt-4" : "mt-6"} compact={compact} reps={done} live={live} bandOpacity={warm ? st.ghost : 1}
-        title={warm ? "Warm-up reps: the shaded band of your normal forms around them." : "Set 2: each rep against your normal. On rep 7 the left knee's trace leaves the band."} />
-      {!warm && !(compact && st.step === 3) && <RepStrip className={compact ? "mt-4" : "mt-6"} label="Set 2" reps={done.map((r, i) => ({ depth: r.depth, fault: i + 1 === 7 && "Knees caving" }))} slots={8} />}
-      {st.step === 3 && (
-        <div className={`${compact ? "mt-4" : "mt-6"} rounded-md border border-[var(--line)] bg-[var(--ground)] p-4`}>
-          <div className="t-label flex items-center justify-between text-[var(--ink-muted)]">
-            <span className="flex items-center gap-2"><Icon name="earbud" size={16} className="text-[var(--ink)]" />In your earbuds</span>
-            <Waveform speaking={st.buzz > 0.5} className="text-[var(--ink)]" />
-          </div>
-          <p className="t-head mt-2 text-[28px] leading-8">Knees out.</p>
-          <p className="t-label mt-3 flex items-center gap-2 text-[var(--ink-muted)]"><Icon name="buzz" size={14} className="text-[var(--signal-ink)]" />Buzz at the left knee · audio optional</p>
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ─────────────────────────────── desktop: pinned, scroll-driven ─────────────────────────────── */
@@ -109,10 +58,7 @@ function HowPinned() {
         {/* the stage: columns 5–12 */}
         <div className="absolute inset-y-0 right-0 left-[38%] flex items-center justify-center gap-6 pb-10 pl-6 pr-[var(--margin)] pt-[calc(var(--header-h)+2rem)]">
           {/* the lifter, rendered: scrolling scrubs the rep */}
-          <SquatView st={st} className={`h-[min(calc(100svh-var(--header-h)-6rem),42rem)] shrink-0 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`} />
-          <div className={`w-full min-w-0 max-w-[30rem] rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-6 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`}>
-            <HowStage st={st} compact />
-          </div>
+          <SquatView st={st} className={`h-[min(calc(100svh-var(--header-h)-5rem),46rem)] shrink-0 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`} />
           <div className="pointer-events-none absolute left-1/2 top-1/2 w-[19.5rem] -translate-x-1/2 -translate-y-1/2">
             <AppScreen visible={st.step === 4} />
           </div>
@@ -194,10 +140,7 @@ function HowStatic() {
               </div>
               <div className="col-span-12 md:col-span-7">
                 {i < 4 ? (
-                  <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                    <SquatStill st={howPose(STEP_STILLS[i])} className="mx-auto w-full max-w-[20rem]" />
-                    <div className="rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-4 sm:p-6"><HowStage st={howPose(STEP_STILLS[i])} /></div>
-                  </div>
+                  <SquatStill st={howPose(STEP_STILLS[i])} className="mx-auto w-full max-w-[24rem]" />
                 ) : (
                   <AppScreen className="mx-auto w-full max-w-[20rem]" />
                 )}
