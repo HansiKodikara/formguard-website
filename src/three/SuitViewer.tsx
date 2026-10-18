@@ -36,7 +36,7 @@ export const forgetModel = () => useGLTF.clear(MODEL);
 /** OrbitControls' own turn speed (autoRotateSpeed 0.9: 0.9 turns a minute), in radians a second */
 const SPIN = (2 * Math.PI / 60) * 0.9;
 /** after someone lets go, how long before it starts turning by itself again, and how long it takes to get up to speed (s) */
-const RESUME_AFTER = 2.5, RESUME_RAMP = 1.5;
+const RESUME_AFTER = 0, RESUME_RAMP = 0.5;
 /** the fastest a swipe can leave the suit coasting, in radians a second */
 const MAX_COAST = 5;
 
