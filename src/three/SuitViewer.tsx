@@ -83,10 +83,36 @@ function Fit() {
 
 /**
  * GPU memory: touch screens (phones, whose GPU the page shares with the curl frames) draw at 1.5x, not 2x, with a
- * 1024 shadow map and a smaller floor shadow: well under half the desktop's. (Keep the MSAA: without it the black
- * suit's outline steps visibly.) Off screen, nothing is drawn.
+ * smaller floor shadow. Off screen, nothing is drawn.
  */
 const LITE = TOUCH;
+
+/**
+ * The effects, each one switchable. The Pixel 10's GPU (Imagination PowerVR) lost the context on the first frames,
+ * and Chrome then blocked the page from WebGL ("Web page caused context loss"): a GPU fault, not memory. So touch
+ * screens leave out the two heaviest shaders, the environment's reflection blur (PMREM) and the real-time shadow
+ * map. To find which effect a phone can't take, add them back from the address: ?3d=env, ?3d=shadow,env,
+ * ?3d=noaa, ?3d=full (everything) or ?3d=bare (nothing).
+ *   env      softbox reflections on the seams and the knit (PMREM)
+ *   shadow   the key light's shadow map
+ *   contact  the soft floor shadow (drawn once)
+ *   aa       MSAA (without it the black suit's outline steps)
+ */
+type Fx = { env: boolean; shadow: boolean; contact: boolean; aa: boolean };
+function effects(): Fx {
+  const fx: Fx = TOUCH ? { env: false, shadow: false, contact: true, aa: true } : { env: true, shadow: true, contact: true, aa: true };
+  const want = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("3d");
+  for (const t of (want ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean)) {
+    if (t === "full") Object.assign(fx, { env: true, shadow: true, contact: true, aa: true });
+    else if (t === "bare") Object.assign(fx, { env: false, shadow: false, contact: false, aa: false });
+    else {
+      const off = t.startsWith("no"), k = (off ? t.slice(2) : t) as keyof Fx;
+      if (k in fx) fx[k] = !off;
+    }
+  }
+  return fx;
+}
+export const FX = effects();
 
 /** onReady: the model is in and drawing; onLost: the browser took the WebGL context away (a GPU reset) */
 export default function SuitViewer({ sensors, label, onReady, onLost }: { sensors: boolean; label: string; onReady?: () => void; onLost?: () => void }) {
@@ -102,18 +128,19 @@ export default function SuitViewer({ sensors, label, onReady, onLost }: { sensor
   }, []);
   return (
     <div ref={box} className="relative h-full w-full">
-      <Canvas role="img" aria-label={label} dpr={LITE ? [1, 1.5] : [1, 2]} shadows frameloop={onScreen ? "always" : "never"}
+      <Canvas role="img" aria-label={label} dpr={LITE ? [1, 1.5] : [1, 2]} shadows={FX.shadow} frameloop={onScreen ? "always" : "never"}
         camera={{ fov: 26, position: [1.7, 1.2, 4.0], near: 0.1, far: 30 }}
-        gl={{ antialias: true, toneMapping: THREE.AgXToneMapping, toneMappingExposure: 1.15 }}
+        gl={{ antialias: FX.aa, toneMapping: THREE.AgXToneMapping, toneMappingExposure: 1.15 }}
         style={TOUCH ? { touchAction: "auto" } : { touchAction: "pan-y", cursor: "grab" }}
         onCreated={({ gl }) => gl.domElement.addEventListener("webglcontextlost", () => {
           // the viewer giving its own context back as it unmounts is not a loss: by then the canvas has left the page
           const c = gl.domElement;
           setTimeout(() => { if (c.isConnected) onLost?.(); }, 0);
         })}>
-        <hemisphereLight args={["#F2EDE4", "#1B1A17", 0.35]} />
+        {/* without the environment's reflections, a little more soft light so the black knit doesn't go flat */}
+        <hemisphereLight args={["#F2EDE4", "#1B1A17", FX.env ? 0.35 : 0.6]} />
         {/* key: soft, front left, high */}
-        <directionalLight position={[-2.2, 3.4, 2.6]} intensity={2.6} castShadow
+        <directionalLight position={[-2.2, 3.4, 2.6]} intensity={2.6} castShadow={FX.shadow}
           shadow-mapSize={LITE ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02}
           shadow-camera-left={-1.2} shadow-camera-right={1.2} shadow-camera-top={2.2} shadow-camera-bottom={-0.2} />
         {/* rims: behind on both sides, so the black fabric keeps its outline */}
@@ -122,17 +149,17 @@ export default function SuitViewer({ sensors, label, onReady, onLost }: { sensor
         {/* fill: low and in front */}
         <directionalLight position={[0, 0.4, 3]} intensity={0.45} />
         {/* softboxes for reflections only (the metal seam trim and the knit's sheen); never seen as a background */}
-        <Environment resolution={256} frames={1}>
+        {FX.env && <Environment resolution={256} frames={1}>
           <Lightformer form="rect" intensity={1.6} position={[-3, 3, 3]} scale={[3, 3, 1]} target={[0, 1, 0]} />
           <Lightformer form="rect" intensity={2.2} position={[3, 1.5, -3]} scale={[0.6, 4, 1]} target={[0, 1, 0]} />
           <Lightformer form="rect" intensity={1.8} position={[-3, 1.5, -3]} scale={[0.6, 4, 1]} target={[0, 1, 0]} />
           <Lightformer form="rect" intensity={0.3} position={[0, 0.4, 4]} scale={[3, 1.5, 1]} target={[0, 1, 0]} />
-        </Environment>
+        </Environment>}
         <Suit onReady={onReady} />
         {sensors && <SensorCallouts labels={labels} />}
         <Fit />
         {/* drawn once: the suit never moves, only the camera */}
-        <ContactShadows frames={1} position={[0, 0.002, 0]} scale={2.4} blur={2.4} opacity={0.55} far={1.2} resolution={LITE ? 256 : 512} color="#000000" />
+        {FX.contact && <ContactShadows frames={1} position={[0, 0.002, 0]} scale={2.4} blur={2.4} opacity={0.55} far={1.2} resolution={LITE ? 256 : 512} color="#000000" />}
         {TOUCH ? <Spin /> : <Controls />}
       </Canvas>
       {sensors && <SensorLabels ref={labels} />}

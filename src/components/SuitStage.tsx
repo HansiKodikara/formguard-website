@@ -58,9 +58,11 @@ export function SuitStage({ eager = false, className = "" }: { eager?: boolean; 
   // a failure (an error, or the GPU dropping the context) gets one fresh try; a second one leaves the render
   const [attempt, setAttempt] = useState(0);
   const tries = useRef(0);
-  const fail = useCallback((detail: string) => {
+  // after the GPU drops the context, Chrome often blocks the page from WebGL ("Web page caused context loss"), so
+  // that one goes straight to the render; a failed load gets its retry
+  const fail = useCallback((detail: string, retry = true) => {
     console.error("[suit 3d]", detail);
-    if (tries.current < 1) {
+    if (retry && tries.current < 1) {
       tries.current++;
       // forget the failed load first, or the retry would be handed the same error
       import("../three/SuitViewer").then((m) => m.forgetModel()).catch(() => {}).finally(() => {
@@ -72,7 +74,7 @@ export function SuitStage({ eager = false, className = "" }: { eager?: boolean; 
     }
   }, []);
   const ready = useCallback(() => setStatus((s) => s.state === "ready" ? s : { state: "ready", detail: s.detail, since: performance.now() }), []);
-  const lost = useCallback(() => fail("the GPU dropped the WebGL context"), [fail]);
+  const lost = useCallback(() => fail("the GPU dropped the WebGL context", false), [fail]);
   const debug = typeof location !== "undefined" && new URLSearchParams(location.search).has("debug3d");
   useEffect(() => { if (webgl && near) setStatus((s) => s.state === "waiting" ? { state: "loading", since: performance.now() } : s); }, [webgl, near]);
   const fig = useRef<HTMLElement>(null);
@@ -125,6 +127,7 @@ function Debug({ probe, status }: { probe: { ok: boolean; gpu: string }; status:
       {`WebGL2: ${probe.ok ? "yes" : "NO"}
 GPU: ${probe.gpu}
 3D: ${probe.ok ? status.state : "not tried"}${status.detail ? ` (${status.detail})` : ""}, for ${secs}s
+Effects: ${new URLSearchParams(location.search).get("3d") ?? "default"} on ${TOUCH ? "touch (defaults: no env, no shadow)" : "desktop (defaults: all)"}
 DPR ${window.devicePixelRatio} · ${navigator.userAgent}`}
     </pre>
   );
