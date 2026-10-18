@@ -1,8 +1,8 @@
-# Squat frames
+# Squat video
 
-The back squat in the website's "How it works" section. The FormGuard suit is shown on the rigged lifter and rendered in Cycles with the product renders' studio lights. The site scrubs through the frames as the visitor scrolls.
+The back squat in the website's "How it works" section. The FormGuard suit is shown on the rigged lifter and rendered in Cycles with the product renders' studio lights. On the site it plays as a video, and the video's time drives the story beside it.
 
-The render is one take along the scroll (170 frames). The lifter does the story's reps while the camera moves through five shots, one per step, always on its way to the next, as the site's earlier real-time lifter did:
+The video is one 26-second take at 30 fps (780 frames). The lifter does the story's reps while the camera moves through five shots, one per step, always on its way to the next, as the site's earlier real-time lifter did:
 
 1. Three-quarter front, from his left.
 2. Round to his right for the warm-up.
@@ -10,7 +10,7 @@ The render is one take along the scroll (170 frames). The lifter does the story'
 4. In close on the knees.
 5. Back out.
 
-Frames sit closer together where he moves fast, and further apart while he stands and only the camera moves. The lights turn with the camera.
+The lights turn with the camera. The frames are rendered transparent, then `encode_squat.py` lays them on the page's colour (Chalk) with a soft floor shadow under the feet and encodes the MP4 with Blender's own FFmpeg.
 
 The poses come from a motion library of two reps:
 
@@ -50,17 +50,20 @@ This produces `squat-motion.json`, which holds the joint centres and joint angle
 ~/Projects/FormGuard/MyoSuite/.venv-imu/bin/python -I suit-render/squat-video/myo_squat.py \
   --myo-sim ~/Projects/FormGuard/MyoSuite/.venv-imu/lib/python3.11/site-packages/myo_sim/models
 
-# 2. the site's story, sampled finely: which motion frame each moment of the scroll shows
+# 2. the site's story, sampled finely: which motion frame each moment shows
 node scripts/squat-timeline.mjs > suit-render/squat-video/timeline.json
 
-# 3. each frame's scroll position, the left knee and the floor shadow, for the site
+# 3. the left knee in each frame, for the site's knee callout (and the floor shadow, for step 5)
 B=/Applications/Blender.app/Contents/MacOS/Blender
-$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --points src/viz/squatFrames.json
+$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --video --points src/viz/squatFrames.json
 
-# 4. the frames (Cycles, 900 x 1200, 96 samples, about 15 min) into renders/ (git-ignored)
-$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --samples 96
+# 4. the frames (Cycles, 900 x 1200, 96 samples, about 50 min on an M5's GPU) into renders/video (git-ignored)
+$B -b suit-render/formguard_suit.blend --python suit-render/squat-video/render_squat.py -- --video --samples 96
 
-# 5. WebP for the site into public/squat
+# 5. on Chalk, with the floor shadow, into public/squat/squat.mp4, plus the stills
+$B -b --factory-startup --python suit-render/squat-video/encode_squat.py
+
+# 6. the stills as WebP into public/squat
 sh scripts/squat-frames.sh
 ```
 
@@ -69,7 +72,7 @@ sh scripts/squat-frames.sh
 | Option | What it does |
 | --- | --- |
 | `--frames 19,56` or `--frames 1-37` | Render only some frames. |
-| `--story 170` | Set how many frames the take has. |
+| `--video` | Render the video's frames: 30 fps over 26 s, into `renders/video`. Without it, the script renders 170 stills spaced for scroll-scrubbing (`--story` sets how many). |
 | `--timeline FILE` | Use a different story timeline (default `timeline.json`). |
 | `--res 600x800` | Set the output size. |
 | `--samples 48` | Set the Cycles sample count. |
@@ -82,7 +85,7 @@ sh scripts/squat-frames.sh
 
 - **Hands:** `fg_hand.py` gives each hand a full finger skeleton: four fingers and the thumb, three bones each, on joint centres measured from the body's own hands. It weights each hand vertex to its nearest bones. Then it curls every joint, base to tip, until the bone meets the bar.
 - **Skin:** `fg_skin.py` makes a light tan skin with subsurface scattering, gentle colour variation, and pores and fine creases in the bump. It also paints a buzz cut and eyebrows. All of it is placed on the body's rest shape, so nothing slides as he moves.
-- **Eyes:** the eyeballs Blender Studio made for this body (`realistic_body_male` in the Human Base Meshes bundle in `../source/download_hbm`), with an iris and pupil under a wet clear coat. They ride on the head bone.
+- **Eyes:** the eyeballs Blender Studio made for this body (`realistic_body_male` in the Human Base Meshes bundle in `../source/download_hbm`), with an iris and pupil under a wet clear coat. They're parented rigidly to the head bone. A deform modifier would rotate them in their own space, and the iris would roll out of sight as the head tilts.
 
 The scene is built in memory from `../formguard_suit.blend` on every run. Neither that file nor its renders are ever changed.
 

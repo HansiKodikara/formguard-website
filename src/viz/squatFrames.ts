@@ -1,32 +1,21 @@
 /**
- * The rendered squat (suit-render/squat-video): which frame shows a moment of the 'How it works' story.
- *
- * The render is one take along the scroll: the lifter does the story's reps while the camera moves round him and in
- * on the knees, as the earlier real-time lifter's camera did. Frame i shows scroll progress p[i]; frames sit closer
- * together where the lifter moves fast. floor: the feet's shadow ellipse in each frame; kneeL: the left knee in
- * each frame (both 0-1 of the frame, y down).
+ * The rendered squat (suit-render/squat-video): a 30 fps video of the whole 'How it works' story, 26 s, in which
+ * the camera moves round the lifter and in on his knees. The video's time is the story's clock: progress p = time /
+ * duration. kneeL: the left knee in each frame (0-1 of the frame, y down), for the knee callout.
  */
 import DATA from "./squatFrames.json";
 import type { HowState } from "./how";
 
-export const SQUAT = DATA as {
-  frames: number; size: [number, number]; p: number[];
-  floor: [number, number, number, number][];
-  kneeL: [number, number][];
-};
+export const SQUAT = DATA as { fps: number; frames: number; size: [number, number]; kneeL: [number, number][] };
 
-/** The frame (1-based) for scroll progress p: the nearest one. */
-export function frameAt(p: number) {
-  const P = SQUAT.p;
-  let lo = 0, hi = P.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (P[mid] <= p) lo = mid; else hi = mid;
-  }
-  return (p - P[lo] <= P[hi] - p ? lo : hi) + 1;
-}
+export const VIDEO_URL = "/squat/squat.mp4";
+/** the key moment of steps 1-4 as stills (phones, reduced motion); step 1's is also the video's poster */
+export const stillUrl = (step: number) => `/squat/still-${step}.webp`;
 
-/** Scroll progress of a story state. */
+/** The video frame (1-based) showing scroll... story progress p. */
+export const frameAt = (p: number) => Math.min(SQUAT.frames, Math.max(1, Math.round(p * (SQUAT.frames - 1)) + 1));
+
+/** Story progress of a story state. */
 export const progressOf = (st: Pick<HowState, "step" | "local">) => (st.step + st.local) / 5;
 
 // ---- the render's motion library (render_squat.py poses the lifter from it; scripts/squat-timeline.mjs) ----
@@ -42,5 +31,3 @@ export function frameExact(st: Pick<HowState, "step" | "phase" | "depth" | "rep"
   const p = st.phase < 0.535 ? half : 1 - half;            // the site's bottom runs 0.5-0.57
   return (st.rep === 7 ? CAVE : CLEAN) + p * PER_REP;
 }
-
-export const frameUrl = (f: number, w: 720 | 450) => `/squat/${w}-${String(f).padStart(3, "0")}.webp`;

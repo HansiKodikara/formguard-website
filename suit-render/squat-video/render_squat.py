@@ -14,7 +14,9 @@ the camera moves through SHOTS. The poses come from a motion library keyed on fr
 
 Options:
     --frames 19,56     only these output frames (comma list or a-b range; default all)
-    --story 170        how many output frames the take has
+    --story 170        how many output frames the take has (stills, scroll-scrubbed)
+    --video            frames for the video instead: 30 fps over the story's 26 s, evenly in time (into
+                       renders/video; encode_squat.py lays them on the page's colour and makes the MP4)
     --timeline FILE    the story (default squat-video/timeline.json)
     --samples 64       Cycles samples (adaptive, denoised)
     --res 900x1200     output size (default 900 x 1200, 3:4)
@@ -55,7 +57,9 @@ for f in ('fg_hand.py', 'fg_skin.py'):
 SC = bpy.data.scenes['Scene']
 if 'FG_Bench' in bpy.data.scenes: bpy.data.scenes.remove(bpy.data.scenes['FG_Bench'])
 bpy.context.window_manager  # noqa
-OUT = os.path.abspath(opt('--out') or os.path.join(HERE, 'renders'))
+VIDEO = bool(opt('--video'))
+FPS, STORY_S = 30, 26.0                       # the video: the site's story in 26 s (src/sections/HowItWorks.tsx)
+OUT = os.path.abspath(opt('--out') or os.path.join(HERE, 'renders', 'video' if VIDEO else ''))
 os.makedirs(OUT, exist_ok=True)
 
 def coll(name):
@@ -384,6 +388,12 @@ def story(n):
         out.append((ps[jj], T[jj]))
     return out
 
+def story_even(n):
+    """n frames evenly spaced in time, for the video."""
+    T = json.load(open(opt('--timeline') or os.path.join(HERE, 'timeline.json')))['motion']
+    S = len(T)
+    return [(i / (n - 1), T[round(i / (n - 1) * (S - 1))]) for i in range(n)]
+
 def show(rig, studio, p, m):
     f = int(math.floor(m)); SC.frame_set(f, subframe=m - f)
     return studio.aim(p)
@@ -417,7 +427,7 @@ if opt('--workbench'):
 else:
     SC.render.engine = 'CYCLES'
     SC.cycles.samples = int(opt('--samples', 64)); SC.cycles.use_denoising = True; SC.cycles.use_adaptive_sampling = True
-STORY = story(int(opt('--story', 170)))
+STORY = story_even(round(STORY_S * FPS)) if VIDEO else story(int(opt('--story', 170)))
 N = len(STORY)
 fr = opt('--frames')
 if isinstance(fr, str):
@@ -445,8 +455,14 @@ if isinstance(opt('--points'), str):
         floor.append([round(min(x for x, _ in ring), 4), round(max(x for x, _ in ring), 4),
                       round(min(y for _, y in ring), 4), round(max(y for _, y in ring), 4)])
     with open(opt('--points'), 'w') as fh:
-        json.dump({'frames': N, 'size': list(res()), 'p': [round(p, 5) for p, _ in STORY], 'floor': floor, 'kneeL': knee},
-                  fh, separators=(',', ':'))
+        if VIDEO:
+            json.dump({'fps': FPS, 'frames': N, 'size': list(res()), 'kneeL': knee}, fh, separators=(',', ':'))
+            # the floor shadow is drawn into the video by encode_squat.py
+            with open(os.path.join(HERE, 'floor-video.json'), 'w') as fl:
+                json.dump({'floor': floor}, fl, separators=(',', ':'))
+        else:
+            json.dump({'frames': N, 'size': list(res()), 'p': [round(p, 5) for p, _ in STORY], 'floor': floor, 'kneeL': knee},
+                      fh, separators=(',', ':'))
     print('[squat] points ->', opt('--points')); raise SystemExit(0)
 for i in frames:
     t = time.time()

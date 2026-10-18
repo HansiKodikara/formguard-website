@@ -1,16 +1,14 @@
 #!/bin/sh
-# Web frames of the squat render (suit-render/squat-video/renders, from render_squat.py): 8-bit WebP at 720 and
-# 450 px wide into public/squat/, for the scroll in 'How it works'. The PNGs are only read.
+# The squat stills for 'How it works' (phones, reduced motion, and the video's poster): the key moment of steps 1-4
+# from the composited video frames (suit-render/squat-video/encode_squat.py), as WebP into public/squat/. The video
+# itself (public/squat/squat.mp4) is written by encode_squat.py.
 #   sh scripts/squat-frames.sh
 set -e
-SRC=suit-render/squat-video/renders
+SRC=suit-render/squat-video/renders/video/stills
 OUT=public/squat
 mkdir -p "$OUT"
 rm -f "$OUT"/*.webp
-for f in "$SRC"/squat-*.png; do
-  n=$(basename "$f" .png | sed 's/squat-//')
-  for w in 720 450; do
-    cwebp -quiet -q 74 -alpha_q 80 -sharp_yuv -metadata none -resize "$w" 0 "$f" -o "$OUT/$w-$n.webp"
-  done
+for f in "$SRC"/still-*.png; do
+  cwebp -quiet -q 78 -sharp_yuv -metadata none -resize 720 0 "$f" -o "$OUT/$(basename "$f" .png).webp"
 done
 echo "$(ls "$OUT" | wc -l | tr -d ' ') files, $(du -sh "$OUT" | cut -f1)"

@@ -3,7 +3,7 @@
     skin_material()          light tan skin: subsurface scattering (random walk, skin), colour that varies gently
                              over the body, and pores and fine creases in the bump; roughness varies with them
     add_eyes(rig, coll)      the eyeballs Blender Studio made for this body (realistic_body_male in the Human Base
-                             Meshes bundle, which Body_Form is, scaled to 1.80 m), on the head bone
+                             Meshes bundle, which Body_Form is, scaled to 1.80 m), parented to the head bone
 """
 import bpy, math, os, numpy as np
 from mathutils import Vector, Matrix
@@ -194,8 +194,11 @@ def add_eyes(rig, coll):
         fwd = np.array((0.0, -1.0, -0.08)); fwd /= np.linalg.norm(fwd)   # looking ahead (-Y), a little down
         me.materials.clear(); me.materials.append(_eye_material(fwd))
         for p in me.polygons: p.use_smooth = True
-        vg = ob.vertex_groups.new(name='head'); vg.add(list(range(len(me.vertices))), 1.0, 'REPLACE')
-        mod = ob.modifiers.new('Armature', 'ARMATURE'); mod.object = rig
+        # rigidly on the head bone (a deform modifier would move the vertices in the eye's own space, and the iris,
+        # placed in that space, would roll out of sight as the head tilts)
+        hb = rig.data.bones['head']
+        ob.parent = rig; ob.parent_type = 'BONE'; ob.parent_bone = 'head'
+        ob.matrix_parent_inverse = (rig.matrix_world @ hb.matrix_local @ Matrix.Translation((0, hb.length, 0))).inverted()
         made.append(ob)
         print(f'[eyes] {ob.name} at {tuple(round(x, 4) for x in c)}, d = {2 * np.linalg.norm(P, axis=1).max() * 1000:.1f} mm, looks {tuple(round(x, 2) for x in fwd)}')
     for o in (base, *eyes):

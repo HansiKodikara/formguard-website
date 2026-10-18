@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Section } from "../components/Section";
 import { Kicker } from "../components/Kicker";
 import { RepStrip } from "../components/RepStrip";
-import { SquatStill, SquatView } from "../components/SquatView";
+import { SquatStill, SquatVideo } from "../components/SquatView";
 import type { Caps } from "../lib/env";
 import { howPose } from "../viz/how";
 
@@ -22,14 +22,15 @@ export function HowItWorks({ caps }: { caps: Caps }) {
 }
 
 /* ─────────────────────────────── desktop: the story plays on its own ─────────────────────────────── */
-/** how long the whole story takes, and the pause on the app summary before it starts again (ms) */
-const STORY_MS = 26000, END_HOLD_MS = 3500;
+/** the pause on the app summary before the story starts again (ms) */
+const END_HOLD_MS = 3500;
 function HowPlayer() {
   const box = useRef<HTMLDivElement>(null);
-  const p = useRef(0);
+  const video = useRef<HTMLVideoElement>(null);
   const [st, setSt] = useState(() => howPose(0));
   const [playing, setPlaying] = useState(true);     // the visitor's choice (the pause button)
   const [inView, setInView] = useState(false);
+  const hold = useRef(0);                          // the rest on the summary, before it starts again
 
   useEffect(() => {
     const el = box.current;
@@ -39,28 +40,30 @@ function HowPlayer() {
     return () => io.disconnect();
   }, []);
 
-  // plays only while the section is on screen; loops after a pause on the summary
+  // the video is the clock: the story follows its time. It plays only while the section is on screen, and after
+  // the end it rests on the app summary, then starts again.
   useEffect(() => {
-    if (!playing || !inView) return;
-    let raf = 0, last = performance.now(), hold = 0;
-    const tick = (now: number) => {
-      const dt = Math.min(64, now - last); last = now;
-      if (p.current >= 1) {
-        hold += dt;
-        if (hold > END_HOLD_MS) { hold = 0; p.current = 0; }
-      } else {
-        p.current = Math.min(1, p.current + dt / STORY_MS);
-      }
-      setSt(howPose(p.current));
-      raf = requestAnimationFrame(tick);
+    const v = video.current;
+    if (!v) return;
+    if (!playing || !inView) { v.pause(); return; }
+    let raf = 0;
+    const sync = () => {
+      if (v.duration) setSt(howPose(v.ended ? 1 : v.currentTime / v.duration));
+      raf = requestAnimationFrame(sync);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const ended = () => { hold.current = window.setTimeout(() => { v.currentTime = 0; v.play().catch(() => {}); }, END_HOLD_MS); };
+    v.addEventListener("ended", ended);
+    if (v.ended) ended(); else v.play().catch(() => {});
+    raf = requestAnimationFrame(sync);
+    return () => { cancelAnimationFrame(raf); clearTimeout(hold.current); v.removeEventListener("ended", ended); };
   }, [playing, inView]);
 
   const jump = (i: number) => {
-    p.current = i / 5 + 0.002;
-    setSt(howPose(p.current));
+    const v = video.current;
+    const p = i / 5 + 0.002;
+    clearTimeout(hold.current);
+    if (v?.duration) { v.currentTime = p * v.duration; if (playing && inView) v.play().catch(() => {}); }
+    setSt(howPose(p));
   };
 
   return (
@@ -69,7 +72,7 @@ function HowPlayer() {
         {/* the stage: columns 5–12 */}
         <div className="absolute inset-y-0 right-0 left-[38%] flex items-center justify-center gap-6 pb-10 pl-6 pr-[var(--margin)] pt-[calc(var(--header-h)+2rem)]">
           {/* the lifter, rendered: scrolling scrubs the rep */}
-          <SquatView st={st} className={`h-[min(calc(100svh-var(--header-h)-5rem),46rem)] shrink-0 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`} />
+          <SquatVideo ref={video} st={st} className={`h-[min(calc(100svh-var(--header-h)-5rem),46rem)] shrink-0 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`} />
           <div className="pointer-events-none absolute left-1/2 top-1/2 w-[19.5rem] -translate-x-1/2 -translate-y-1/2">
             <AppScreen visible={st.step === 4} />
           </div>
@@ -161,7 +164,7 @@ function HowStatic() {
               </div>
               <div className="col-span-12 md:col-span-7">
                 {i < 4 ? (
-                  <SquatStill st={howPose(STEP_STILLS[i])} className="mx-auto w-full max-w-[24rem]" />
+                  <SquatStill step={i} st={howPose(STEP_STILLS[i])} className="mx-auto w-full max-w-[24rem]" />
                 ) : (
                   <AppScreen className="mx-auto w-full max-w-[20rem]" />
                 )}
