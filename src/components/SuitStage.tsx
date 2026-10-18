@@ -127,7 +127,7 @@ function Debug({ probe, status }: { probe: { ok: boolean; gpu: string }; status:
       {`WebGL2: ${probe.ok ? "yes" : "NO"}
 GPU: ${probe.gpu}
 3D: ${probe.ok ? status.state : "not tried"}${status.detail ? ` (${status.detail})` : ""}, for ${secs}s
-Effects: ${new URLSearchParams(location.search).get("3d") ?? "default"} on ${TOUCH ? "touch (defaults: no env, no shadow)" : "desktop (defaults: all)"}
+Effects: ${new URLSearchParams(location.search).get("3d") ?? "default"} on ${TOUCH ? "touch (defaults: no shadow map)" : "desktop (defaults: all)"}
 DPR ${window.devicePixelRatio} · ${navigator.userAgent}`}
     </pre>
   );

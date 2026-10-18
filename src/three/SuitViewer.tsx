@@ -88,11 +88,11 @@ function Fit() {
 const LITE = TOUCH;
 
 /**
- * The effects, each one switchable. The Pixel 10's GPU (Imagination PowerVR) lost the context on the first frames,
- * and Chrome then blocked the page from WebGL ("Web page caused context loss"): a GPU fault, not memory. So touch
- * screens leave out the two heaviest shaders, the environment's reflection blur (PMREM) and the real-time shadow
- * map. To find which effect a phone can't take, add them back from the address: ?3d=env, ?3d=shadow,env,
- * ?3d=noaa, ?3d=full (everything) or ?3d=bare (nothing).
+ * The effects, each one switchable. On the Pixel 10 (Imagination PowerVR D-Series DXT) the key light's shadow map
+ * faults the GPU within seconds: Chrome loses the context and then blocks the page from WebGL ("Web page caused
+ * context loss"). Tested one at a time on the phone, the environment's reflections were fine and the shadow map was
+ * not, so touch screens leave the shadow map out (the soft floor shadow still grounds him). To try a phone with an
+ * effect on or off: ?3d=shadow, ?3d=noenv, ?3d=noaa, ?3d=full (everything) or ?3d=bare (nothing).
  *   env      softbox reflections on the seams and the knit (PMREM)
  *   shadow   the key light's shadow map
  *   contact  the soft floor shadow (drawn once)
@@ -100,7 +100,7 @@ const LITE = TOUCH;
  */
 type Fx = { env: boolean; shadow: boolean; contact: boolean; aa: boolean };
 function effects(): Fx {
-  const fx: Fx = TOUCH ? { env: false, shadow: false, contact: true, aa: true } : { env: true, shadow: true, contact: true, aa: true };
+  const fx: Fx = TOUCH ? { env: true, shadow: false, contact: true, aa: true } : { env: true, shadow: true, contact: true, aa: true };
   const want = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("3d");
   for (const t of (want ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean)) {
     if (t === "full") Object.assign(fx, { env: true, shadow: true, contact: true, aa: true });
