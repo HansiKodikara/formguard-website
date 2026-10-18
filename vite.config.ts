@@ -18,6 +18,8 @@ function devApi(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+        // /admin is a page of its own (admin/index.html); without the slash Vite would serve the home page instead
+        if (url.pathname === "/admin") { res.statusCode = 302; res.setHeader("Location", `/admin/${url.search}`); res.end(); return; }
         const route = url.pathname.match(/^\/api\/([a-z][a-z-]*)$/);
         if (!route) return next();
         try {
