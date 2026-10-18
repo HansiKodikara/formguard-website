@@ -13,6 +13,9 @@ Options:
     --samples 64       Cycles samples (adaptive, denoised)
     --res 900x1200     output size (default 900 x 1200, 3:4)
     --out DIR          where the PNGs go (default squat-video/renders, git-ignored)
+    --dqs              keep 'preserve volume' skinning (the bench video's), for comparison
+    --simple           pose from the simple depth curves instead of the MyoSuite motion (squat-motion.json)
+    --motion FILE      MyoSuite motion to use (default squat-video/squat-motion.json, from myo_squat.py)
     --workbench        flat viewport shading instead of Cycles (motion check only)
     --points FILE      write where the left knee pod is in each frame (0-1 image coordinates, y down) as JSON
                        and stop, without rendering; the site draws its knee callout there
@@ -87,7 +90,9 @@ def build():
         body_masks(body)
     for c in ('FG_Shirt_Set', 'FG_Tights_Set', 'FG_Shirt_Details', 'FG_Tights_Details'):
         bpy.data.collections[c].hide_viewport = False; bpy.data.collections[c].hide_render = False
-    bind_suit(body, rig, S)
+    pieces = bind_suit(body, rig, S)
+    if not opt('--dqs'):
+        smooth_skinning([body] + pieces)
     # the product scene's own suit, mannequin and stage are not part of this shot
     for c in ('FG_Shirt_Set', 'FG_Tights_Set', 'FG_Shirt_Details', 'FG_Tights_Details', 'FG_Stage'):
         if c in bpy.data.collections:
@@ -96,6 +101,20 @@ def build():
         o = bpy.data.objects.get(n)
         if o: o.hide_render = True; o.hide_viewport = True
     return rig, body, C
+
+def smooth_skinning(obs):
+    """Plain (linear) skinning instead of 'preserve volume', which balloons the shoulders, traps and knees in big
+    bends; a Corrective Smooth after it relaxes the creases back towards the rest shape."""
+    for ob in obs:
+        arm = next((m for m in ob.modifiers if m.type == 'ARMATURE'), None)
+        if arm is None: continue
+        arm.use_deform_preserve_volume = False
+        cs = ob.modifiers.new('CorrectiveSmooth', 'CORRECTIVE_SMOOTH')
+        cs.rest_source = 'ORCO'; cs.smooth_type = 'LENGTH_WEIGHTED'; cs.iterations = 12; cs.factor = 0.5
+        cs.use_only_smooth = False; cs.use_pin_boundary = True
+        i = list(ob.modifiers).index(arm) + 1
+        while list(ob.modifiers).index(cs) > i:
+            ob.modifiers.move(list(ob.modifiers).index(cs), list(ob.modifiers).index(cs) - 1)
 
 def bar_rest(body):
     """Where the bar sits on the standing lifter: high bar, on the top of the traps just below C7."""
@@ -124,7 +143,8 @@ def pose_rig(rig, C, body):
     # legs: feet planted, toes out; knees aim over the toes (pole in front and outside)
     feet, knee_poles = {}, {}
     for s, side in ((1, 'L'), (-1, 'R')):
-        tgt = empty(f'FG_IK_Foot.{side}', C, (STANCE_X * s, 0.045, 0.085))
+        foot_at = MAP(MOTION[1]['ankle' + side]) if MOTION else Vector((STANCE_X * s, 0.045, 0.085))
+        tgt = empty(f'FG_IK_Foot.{side}', C, foot_at)
         tgt.rotation_quaternion = (Matrix.Rotation(math.radians(TOE_OUT * s), 3, 'Z') @ rest_rot(rig, f'foot.{side}')).to_quaternion()
         pole = empty(f'FG_Pole_Knee.{side}', C, (0.40 * s, -1.2, 0.5))
         ik = pb[f'shin.{side}'].constraints.new('IK'); ik.target = tgt; ik.pole_target = pole; ik.chain_count = 2; ik.use_tail = True
@@ -132,10 +152,11 @@ def pose_rig(rig, C, body):
         feet[side], knee_poles[side] = tgt, (pole, ik)
     # arms: hands on the bar outside the shoulders, elbows down and back
     for s, side in ((1, 'L'), (-1, 'R')):
-        tgt = empty(f'FG_IK_Hand.{side}', C, (GRIP_X * s, -0.025, -0.055), parent=bar)
-        Q = frame_map(HAND_DIR_REST[side], (-s, 0, 0), (0.0, 0.22, 1.0), (0.15 * -s, -1.0, 0.25))
+        # hands behind the bar, fingers over the top of it towards the front, palms facing forward
+        tgt = empty(f'FG_IK_Hand.{side}', C, (GRIP_X * s, 0.035, -0.05), parent=bar)
+        Q = frame_map(HAND_DIR_REST[side], (-s, 0, 0), (0.0, -0.30, 1.0), (0.10 * -s, -1.0, -0.30))
         tgt.rotation_quaternion = (Q @ rest_rot(rig, f'hand.{side}')).to_quaternion()
-        pole = empty(f'FG_Pole_Elbow.{side}', C, (0.30 * s, 0.60, -0.45), parent=bar)   # rides with the bar: low and behind
+        pole = empty(f'FG_Pole_Elbow.{side}', C, (0.28 * s, 0.35, -0.80), parent=bar)   # rides with the bar: elbows down and a little back
         ik = pb[f'forearm.{side}'].constraints.new('IK'); ik.target = tgt; ik.pole_target = pole; ik.chain_count = 2; ik.use_tail = True
         cr = pb[f'hand.{side}'].constraints.new('COPY_ROTATION'); cr.target = tgt; cr.target_space = cr.owner_space = 'WORLD'
     set_frame_pose(rig, knee_poles, BOTTOM)          # calibrate the poles with the joints bent, where they're unambiguous
@@ -160,27 +181,59 @@ def fine_pole(rig, side, ik, pole, chain=('upper_arm', 'forearm', 'hand')):
     ik.pole_angle = math.radians(best[1])
     return best
 
+# ---------------------------------------------------------------- the motion: MyoSuite (myo_squat.py), or the simple curves
+import json
+MOTION_FILE = opt('--motion') or os.path.join(HERE, 'squat-motion.json')
+MOTION = None if opt('--simple') or not os.path.exists(MOTION_FILE) else {fr['frame']: fr for fr in json.load(open(MOTION_FILE))['frames']}
+TILT_SHARE = 0.82                    # pelvis tilt / torso lean, as in myo_squat.py; the spine bends the rest
+H0 = Vector((0.0, -0.01, 0.92))      # this rig's rest hip centre
+ANKLE_REST = Vector((0.0, 0.045, 0.085))
+def myo_map():
+    """MyoLeg -> this body: scale by leg length (hip to ankle), feet at this rig's ankles on frame 1."""
+    f1 = MOTION[1]
+    hipm = (Vector(f1['hipL']) + Vector(f1['hipR'])) / 2; ankm = (Vector(f1['ankleL']) + Vector(f1['ankleR'])) / 2
+    k = 0.842 / (Vector(f1['hipL']) - Vector(f1['ankleL'])).length * 1.0
+    return lambda v: (Vector(v) - ankm) * k + ANKLE_REST
+MAP = myo_map() if MOTION else None
+
 def set_frame_pose(rig, knee_poles, f):
-    """Hips (root bone) down, back and leaning; the left knee's pole swings in for the cave. Keyed on frame f."""
+    """Keyed on frame f. With MyoSuite motion: hips, pelvis tilt and torso lean from the solved skeleton, each knee
+    pointed at the solved knee, feet where the solver planted them. Without: the simple depth curves."""
     p, cave = phase(f)
     d = depth(p)
-    H0 = Vector((0.0, -0.01, 0.92))                                  # rest hip centre
-    H = Vector((0.0, -0.01 + HIP_BOT_Y * d, HIP_TOP_Z + (HIP_BOT_Z - HIP_TOP_Z) * d))
-    lean = LEAN_BOT * d ** 1.15
-    target = Matrix.Translation(H) @ Matrix.Rotation(math.radians(lean), 4, 'X') @ Matrix.Translation(-H0)
+    if MOTION:
+        fr = MOTION[f]
+        H = MAP(fr['hip_c']); lean = fr['pitch']; tilt = lean * TILT_SHARE
+    else:
+        H = Vector((0.0, -0.01 + HIP_BOT_Y * d, HIP_TOP_Z + (HIP_BOT_Z - HIP_TOP_Z) * d))
+        lean = LEAN_BOT * d ** 1.15; tilt = lean
+    target = Matrix.Translation(H) @ Matrix.Rotation(math.radians(tilt), 4, 'X') @ Matrix.Translation(-H0)
     B = rig.data.bones['root'].matrix_local
     pb = rig.pose.bones['root']
     pb.matrix_basis = B.inverted() @ target @ B
     pb.keyframe_insert('location', frame=f); pb.keyframe_insert('rotation_quaternion', frame=f)
+    # the rest of the lean in the spine (the pelvis carries TILT_SHARE of it)
+    for bn, share in (('spine', 0.5), ('chest', 0.5)):
+        sb = rig.pose.bones[bn]; sb.rotation_quaternion = (1, 0, 0, 0)
+        rot_world(sb, (1, 0, 0), (lean - tilt) * share)
+        sb.keyframe_insert('rotation_quaternion', frame=f)
     # head: eyes forward and a little down, so the neck stays neutral as the torso leans
     nk = rig.pose.bones['neck']; nk.rotation_quaternion = (1, 0, 0, 0)
     rot_world(nk, (1, 0, 0), -lean * 0.45)
     nk.keyframe_insert('rotation_quaternion', frame=f)
     for side, (pole, ik) in knee_poles.items():
         s = 1 if side == 'L' else -1
-        x = 0.40 * s
-        if side == 'L': x = x + (CAVE_POLE_X - x) * cave
-        pole.location = (x, -1.2, 0.5); pole.keyframe_insert('location', frame=f)
+        if MOTION:
+            hip, knee, ank = MAP(fr['hip' + side]), MAP(fr['knee' + side]), MAP(fr['ankle' + side])
+            out = knee - (hip + ank) / 2
+            if out.length < 0.02:                       # legs straight: aim the knee over the toes
+                out = Vector((math.sin(math.radians(TOE_OUT)) * s, -1, 0))
+            pole.location = knee + out.normalized() * 0.6
+        else:
+            x = 0.40 * s
+            if side == 'L': x = x + (CAVE_POLE_X - x) * cave
+            pole.location = (x, -1.2, 0.5)
+        pole.keyframe_insert('location', frame=f)
 
 def animate(rig, knee_poles):
     for f in list(CLEAN) + list(CAVE):
