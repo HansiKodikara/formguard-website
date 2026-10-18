@@ -7,13 +7,14 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 /**
  * The suit in 3D, from the Blender scene (suit-render/scripts/export_web.py writes public/models/formguard-suit.glb).
- * Two nodes: FG_Suit and FG_Body (the stone mannequin), so the suit can be shown on or off the body. Lit like the
- * studio renders: a soft key from the front left, two rims from behind, a low fill; no glow. Drag to orbit.
+ * Two nodes, FG_Suit and FG_Body (the stone mannequin); only the suit is shown. Lit like the studio renders: a soft
+ * key from the front left, two rims from behind, a low fill; no glow. Drag to orbit; no zoom, so the wheel scrolls
+ * the page.
  */
 const MODEL = "/models/formguard-suit.glb";
 const TARGET = new THREE.Vector3(0, 0.93, 0);
 
-function Suit({ showBody }: { showBody: boolean }) {
+function Suit() {
   const { scene } = useGLTF(MODEL, "/draco/");
   const body = useMemo(() => scene.getObjectByName("FG_Body"), [scene]);
   useMemo(() => {
@@ -23,7 +24,7 @@ function Suit({ showBody }: { showBody: boolean }) {
       m.castShadow = m.receiveShadow = true;
     });
   }, [scene]);
-  if (body) body.visible = showBody;
+  if (body) body.visible = false;
   return <primitive object={scene} />;
 }
 
@@ -39,8 +40,8 @@ function Controls() {
     return () => c.removeEventListener("start", stop);
   }, []);
   return (
-    <OrbitControls ref={ref} target={TARGET} enablePan={false} enableDamping dampingFactor={0.08}
-      minDistance={2.2} maxDistance={6} minPolarAngle={Math.PI * 0.18} maxPolarAngle={Math.PI * 0.56}
+    <OrbitControls ref={ref} target={TARGET} enablePan={false} enableZoom={false} enableDamping dampingFactor={0.08}
+      minPolarAngle={Math.PI * 0.18} maxPolarAngle={Math.PI * 0.56}
       autoRotate={!still} autoRotateSpeed={0.9} />
   );
 }
@@ -54,7 +55,7 @@ function Fit() {
   return null;
 }
 
-export default function SuitViewer({ showBody, sensors, label }: { showBody: boolean; sensors: boolean; label: string }) {
+export default function SuitViewer({ sensors, label }: { sensors: boolean; label: string }) {
   const labels = useRef<HTMLDivElement>(null);
   return (
     <div className="relative h-full w-full">
@@ -79,7 +80,7 @@ export default function SuitViewer({ showBody, sensors, label }: { showBody: boo
           <Lightformer form="rect" intensity={1.8} position={[-3, 1.5, -3]} scale={[0.6, 4, 1]} target={[0, 1, 0]} />
           <Lightformer form="rect" intensity={0.3} position={[0, 0.4, 4]} scale={[3, 1.5, 1]} target={[0, 1, 0]} />
         </Environment>
-        <Suit showBody={showBody} />
+        <Suit />
         {sensors && <SensorCallouts labels={labels} />}
         <Fit />
         <ContactShadows position={[0, 0.002, 0]} scale={2.4} blur={2.4} opacity={0.55} far={1.2} resolution={512} color="#000000" />
