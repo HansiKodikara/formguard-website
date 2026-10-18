@@ -4,6 +4,7 @@ import { Kicker } from "../components/Kicker";
 import { Readout } from "../components/Readout";
 import { RepStrip } from "../components/RepStrip";
 import { Icon } from "../components/Icon";
+import { SquatStill, SquatView } from "../components/SquatView";
 import { Waveform } from "../components/Waveform";
 import { ScrollTrigger, useGSAP } from "../lib/gsap";
 import type { Caps } from "../lib/env";
@@ -96,8 +97,10 @@ function HowPinned() {
     <Section id="how" surface="chalk" label="How it works">
       <div ref={pin} className="relative h-[100svh] min-h-[640px] overflow-hidden">
         {/* the stage: columns 5–12 */}
-        <div className="absolute inset-y-0 right-0 left-[38%] flex items-center justify-center pb-10 pl-6 pr-[var(--margin)] pt-[calc(var(--header-h)+2rem)]">
-          <div className={`w-full max-w-[36rem] rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-6 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`}>
+        <div className="absolute inset-y-0 right-0 left-[38%] flex items-center justify-center gap-6 pb-10 pl-6 pr-[var(--margin)] pt-[calc(var(--header-h)+2rem)]">
+          {/* the lifter, rendered: scrolling scrubs the rep */}
+          <SquatView st={st} className={`h-[min(calc(100svh-var(--header-h)-8rem),38rem)] shrink-0 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`} />
+          <div className={`w-full min-w-0 max-w-[30rem] rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-6 transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === 4 ? "pointer-events-none -translate-x-6 opacity-0" : ""}`}>
             <HowStage st={st} compact />
           </div>
           <div className="pointer-events-none absolute left-1/2 top-1/2 w-[19.5rem] -translate-x-1/2 -translate-y-1/2">
@@ -181,7 +184,10 @@ function HowStatic() {
               </div>
               <div className="col-span-12 md:col-span-7">
                 {i < 4 ? (
-                  <div className="rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-4 sm:p-6"><HowStage st={howPose(STEP_STILLS[i])} /></div>
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                    <SquatStill st={howPose(STEP_STILLS[i])} className="mx-auto w-full max-w-[20rem]" />
+                    <div className="rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-4 sm:p-6"><HowStage st={howPose(STEP_STILLS[i])} /></div>
+                  </div>
                 ) : (
                   <AppScreen className="mx-auto w-full max-w-[20rem]" />
                 )}
