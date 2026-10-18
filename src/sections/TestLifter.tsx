@@ -11,13 +11,14 @@ type Status = "idle" | "sending" | "sent" | "error";
 
 /**
  * Test-lifter sign-up: the waitlist. Posts JSON to SITE.formEndpoint (the site's own api/signup.ts) and thanks
- * them in place; nobody leaves the page. `website` is a field only bots fill in (hidden from people and from
+ * them in place; nobody leaves the page. `fg_trap` is a field only bots fill in (display: none, so browsers never
+ * autofill it, and hidden from people and from
  * screen readers); the API drops what it sends.
  */
 export function TestLifter() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [website, setWebsite] = useState("");
+  const [trap, setTrap] = useState("");
   const [lifts, setLifts] = useState<string[]>([]);
   const [freq, setFreq] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ email?: string; lifts?: string }>({});
@@ -31,7 +32,7 @@ export function TestLifter() {
     };
     setErrors(next);
     if (next.email || next.lifts) return;
-    const data = { name, email, lifts, frequency: freq[0] ?? "", website };
+    const data = { name, email, lifts, frequency: freq[0] ?? "", fg_trap: trap };
     setStatus("sending");
     try {
       const r = await fetch(SITE.formEndpoint, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(data) });
@@ -75,9 +76,9 @@ export function TestLifter() {
               </div>
               <ChipGroup legend="What do you lift?" name="lifts" value={lifts} onChange={setLifts} error={errors.lifts}
                 options={LIFTS.map((l) => ({ value: l.toLowerCase(), label: l }))} />
-              {/* for bots only: off-screen, out of the tab order, hidden from screen readers */}
-              <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">
-                <label>Website<input type="text" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} /></label>
+              {/* for bots only: display: none, so people never see it and browsers never autofill it */}
+              <div hidden>
+                <label>Leave this empty<input type="text" name="fg_trap" tabIndex={-1} autoComplete="off" value={trap} onChange={(e) => setTrap(e.target.value)} /></label>
               </div>
               <ChipGroup legend="How often do you train?" type="radio" name="freq" value={freq} onChange={setFreq} options={[...FREQ]} />
               <div className="flex flex-wrap items-center gap-4">

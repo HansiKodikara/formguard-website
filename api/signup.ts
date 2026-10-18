@@ -4,8 +4,8 @@ import { EMAIL, FREQ, LIFTS } from "./_lib/fields.js";
 /**
  * POST /api/signup: join the waitlist. Takes the form's JSON ({ name, email, lifts, frequency }), checks it again
  * here (the page's own checks can be skipped), and saves it. Signing up again with the same email updates the
- * answers rather than adding a second row. `website` is a field people never see: if it's filled in, a bot sent it,
- * and it's quietly dropped.
+ * answers rather than adding a second row. `fg_trap` is a field people never see (and browsers never autofill):
+ * if it's filled in, a bot sent it, and it's dropped (logged, so a dropped sign-up is never a mystery).
  */
 const LIFT_VALUES = new Set<string>(LIFTS.map((l) => l.toLowerCase()));
 const FREQ_VALUES = new Set<string>(FREQ.map((f) => f.value));
@@ -19,7 +19,10 @@ export async function POST(request: Request) {
   } catch {
     return json({ error: "Send the form as JSON." }, 400);
   }
-  if (typeof body.website === "string" && body.website.trim()) return json({ ok: true });
+  if (typeof body.fg_trap === "string" && body.fg_trap.trim()) {
+    console.warn("[signup] dropped as a bot: the hidden field was filled in", { email: body.email });
+    return json({ ok: true });
+  }
 
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
