@@ -4,35 +4,23 @@ import { Kicker } from "../components/Kicker";
 import { Segmented } from "../components/Segmented";
 
 /**
- * The product: the suit from the Blender scene in suit-render/. By default a 3D model you can turn
- * (public/models, from suit-render/scripts/export_web.py), loaded only when the section comes near; the studio
- * renders (public/suit, from scripts/suit-images.sh) sit in a strip below it. The renders are on a dark sweep,
- * so this section is Iron and a photo's edges are feathered into it with a mask; the pixels are untouched.
+ * The product: the suit from the Blender scene in suit-render/, as a 3D model you can turn (public/models, from
+ * suit-render/scripts/export_web.py), loaded only when the section comes near. Until then, or without WebGL, a
+ * studio render stands in (public/suit, from scripts/suit-images.sh); it is on a dark sweep, so this section is
+ * Iron and its edges are feathered into it with a mask; the pixels are untouched.
  */
 const SuitViewer = lazy(() => import("../three/SuitViewer"));
 
 function hasWebGL() {
   try { return !!document.createElement("canvas").getContext("webgl2"); } catch { return false; }
 }
-type Shot = { id: string; label: string; alt: string };
-const SHOTS: Shot[] = [
-  { id: "07_body_three_quarter_front", label: "On the body · ¾",
+/** a studio render stands in while the model loads, and for browsers without WebGL */
+const POSTERS = {
+  on: { id: "07_body_three_quarter_front",
     alt: "The FormGuard suit worn on a mannequin, three-quarter front view: a black long-sleeve compression shirt and full-length tights with thin silver seam lines and small sensor pods at the arms and legs." },
-  { id: "06_body_front", label: "On the body · front",
-    alt: "The FormGuard suit worn on a mannequin, front view, arms slightly out: sensor pods on both arms and both legs, the FormGuard logo on the chest and the F symbol on the left thigh." },
-  { id: "08_body_back", label: "On the body · back",
-    alt: "The FormGuard suit worn on a mannequin, back view: silver signal seams run from the shoulders down the spine to the controller on the back waistband." },
-  { id: "01_shirt_front", label: "Shirt · front",
-    alt: "The FormGuard shirt on its own, front: long sleeves, the stacked FormGuard logo on the chest, sensor pods on the upper arms and wrists." },
-  { id: "02_shirt_back", label: "Shirt · back",
-    alt: "The FormGuard shirt on its own, back: sensor pods at the top of each shoulder and between the shoulder blades, joined by silver signal seams." },
-  { id: "03_tights_front", label: "Tights · front",
-    alt: "The FormGuard tights on their own, front: the F symbol on the left thigh, sensor pods on the outer thighs and shins." },
-  { id: "04_tights_back", label: "Tights · back",
-    alt: "The FormGuard tights on their own, back: the controller on the waistband, a sensor pod at the lower back, signal seams running down each leg." },
-  { id: "05_suit_three_quarter_back", label: "Full suit · ¾ back",
+  off: { id: "05_suit_three_quarter_back",
     alt: "The full FormGuard suit, shirt and tights together, three-quarter back view, with the controller on the back waistband." },
-];
+};
 
 const src = (id: string, w: number) => `/suit/${id}-${w}.webp`;
 const srcSet = (id: string) => `${src(id, 400)} 400w, ${src(id, 800)} 800w, ${src(id, 1600)} 1600w`;
@@ -52,7 +40,6 @@ const SPECS = [
 ];
 
 export function Suit() {
-  const [i, setI] = useState(-1);                       // -1: the 3D model, otherwise a photo
   const [body, setBody] = useState<"on" | "off">("on");
   const [near, setNear] = useState(false);
   const [webgl] = useState(hasWebGL);
@@ -64,8 +51,7 @@ export function Suit() {
     io.observe(el);
     return () => io.disconnect();
   }, []);
-  const show3d = i < 0 && webgl;
-  const shot = SHOTS[i < 0 ? (body === "on" ? 0 : 7) : i];
+  const shot = POSTERS[body];
   const poster = (
     <img src={src(shot.id, 800)} srcSet={srcSet(shot.id)} sizes="(min-width: 1024px) 45vw, 92vw"
       alt={shot.alt} width={1600} height={2400} loading="lazy" decoding="async" style={FEATHER}
@@ -91,27 +77,15 @@ export function Suit() {
 
           {webgl && (
             <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <Segmented label="Show the suit" value={body} onChange={(v) => { setBody(v); setI(-1); }}
+              <Segmented label="Show the suit" value={body} onChange={setBody}
                 options={[{ value: "on", label: "On the body" }, { value: "off", label: "Suit only" }]} />
-              <p className="t-label text-[var(--ink-muted)]">{i < 0 ? "Drag to turn it" : "Studio photo"}</p>
+              <p className="t-label text-[var(--ink-muted)]">Drag to turn it</p>
             </div>
           )}
-
-          {/* the studio renders: pick one to see it large; the first tile goes back to the 3D model */}
-          <p className="t-label mt-10 text-[var(--ink-muted)]">Studio photos</p>
-          <div role="group" aria-label="Views of the suit" className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-2 lg:grid lg:grid-cols-4 lg:overflow-visible">
-            {SHOTS.map((s, k) => (
-              <button key={s.id} type="button" onClick={() => setI(k === i ? -1 : k)} aria-pressed={k === i} aria-label={s.label}
-                className={`group relative w-[4.5rem] shrink-0 overflow-hidden rounded-sm border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ink)] lg:w-auto ${k === i ? "border-[var(--ink)]" : "border-[var(--line)] hover:border-[var(--line-strong)]"}`}>
-                <img src={src(s.id, 400)} alt="" width={400} height={600} loading="lazy" decoding="async" className="block aspect-[2/3] w-full object-cover" />
-              </button>
-            ))}
-          </div>
-          <p className="t-label mt-3 text-[var(--ink-muted)]" aria-live="polite">{i < 0 ? (webgl ? "3D model" : shot.label) : shot.label}</p>
         </div>
 
         <figure ref={fig} className="relative col-span-12 mx-auto aspect-[2/3] max-h-[88svh] w-full max-w-[36rem] lg:col-span-6 lg:col-start-7">
-          {show3d && near ? (
+          {webgl && near ? (
             <Suspense fallback={poster}>
               <SuitViewer showBody={body === "on"}
                 label={`3D model of the FormGuard suit${body === "on" ? " on a mannequin" : ""}: a black long-sleeve compression shirt and full-length tights with silver seam lines and sensor pods. Drag to turn it.`} />
