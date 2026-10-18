@@ -32,7 +32,7 @@ export function AnnyCompare({ caps }: { caps: Caps }) {
     if (!caps.pin) return;
     const t = ScrollTrigger.create({
       trigger: pin.current, start: "top top", end: () => "+=" + innerHeight * PIN_SCREENS, pin: true, anticipatePin: 1,
-      refreshPriority: -1,                        // after 'How it works' above has added its own pin's scroll space
+      refreshPriority: -1,                        // after any pin above has added its scroll space
       onUpdate: (self) => { progress.current = self.progress; },
     });
     return () => t.kill();

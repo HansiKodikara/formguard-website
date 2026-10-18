@@ -1,9 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Section } from "../components/Section";
 import { Kicker } from "../components/Kicker";
 import { RepStrip } from "../components/RepStrip";
 import { SquatStill, SquatView } from "../components/SquatView";
-import { ScrollTrigger, useGSAP } from "../lib/gsap";
 import type { Caps } from "../lib/env";
 import { howPose } from "../viz/how";
 
@@ -19,42 +18,54 @@ export const STEPS = [
 export const STEP_STILLS = [0.17, 0.33, 0.57, 0.64, 0.9];
 
 export function HowItWorks({ caps }: { caps: Caps }) {
-  return caps.pin ? <HowPinned /> : <HowStatic />;
+  return caps.pin ? <HowPlayer /> : <HowStatic />;
 }
 
-/* ─────────────────────────────── desktop: pinned, scroll-driven ─────────────────────────────── */
-/** how many screens of scrolling the pinned story takes */
-const PIN_SCREENS = 2.4;
-function HowPinned() {
-  const pin = useRef<HTMLDivElement>(null);
-  const trig = useRef<ScrollTrigger | null>(null);
+/* ─────────────────────────────── desktop: the story plays on its own ─────────────────────────────── */
+/** how long the whole story takes, and the pause on the app summary before it starts again (ms) */
+const STORY_MS = 26000, END_HOLD_MS = 3500;
+function HowPlayer() {
+  const box = useRef<HTMLDivElement>(null);
+  const p = useRef(0);
   const [st, setSt] = useState(() => howPose(0));
+  const [playing, setPlaying] = useState(true);     // the visitor's choice (the pause button)
+  const [inView, setInView] = useState(false);
 
-  // the story eases towards the scroll position rather than jumping to it, so a flick of the wheel plays as motion
-  useGSAP(() => {
-    let target = 0, shown = 0, raf = 0;
-    const tick = () => {
-      shown += (target - shown) * 0.14;
-      if (Math.abs(target - shown) < 0.0004) shown = target;
-      setSt(howPose(shown));
-      raf = shown === target ? 0 : requestAnimationFrame(tick);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setInView(e.intersectionRatio > 0.45), { threshold: [0, 0.45, 1] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // plays only while the section is on screen; loops after a pause on the summary
+  useEffect(() => {
+    if (!playing || !inView) return;
+    let raf = 0, last = performance.now(), hold = 0;
+    const tick = (now: number) => {
+      const dt = Math.min(64, now - last); last = now;
+      if (p.current >= 1) {
+        hold += dt;
+        if (hold > END_HOLD_MS) { hold = 0; p.current = 0; }
+      } else {
+        p.current = Math.min(1, p.current + dt / STORY_MS);
+      }
+      setSt(howPose(p.current));
+      raf = requestAnimationFrame(tick);
     };
-    trig.current = ScrollTrigger.create({
-      trigger: pin.current, start: "top top", end: () => "+=" + innerHeight * PIN_SCREENS, pin: true, anticipatePin: 1,
-      onUpdate: (self) => { target = self.progress; if (!raf) raf = requestAnimationFrame(tick); },
-    });
-    return () => { cancelAnimationFrame(raf); trig.current?.kill(); };
-  });
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, inView]);
 
   const jump = (i: number) => {
-    const t = trig.current;
-    if (!t) return;
-    window.scrollTo({ top: t.start + ((i + 0.55) / 5) * (t.end - t.start), behavior: "smooth" });
+    p.current = i / 5 + 0.002;
+    setSt(howPose(p.current));
   };
 
   return (
     <Section id="how" surface="chalk" label="How it works">
-      <div ref={pin} className="relative h-[100svh] min-h-[640px] overflow-hidden">
+      <div ref={box} className="relative h-[100svh] min-h-[640px] overflow-hidden">
         {/* the stage: columns 5–12 */}
         <div className="absolute inset-y-0 right-0 left-[38%] flex items-center justify-center gap-6 pb-10 pl-6 pr-[var(--margin)] pt-[calc(var(--header-h)+2rem)]">
           {/* the lifter, rendered: scrolling scrubs the rep */}
@@ -71,7 +82,8 @@ function HowPinned() {
             <ol className="mt-10 border-l border-[var(--line-strong)]">
               {STEPS.map((s, i) => (
                 <li key={i} className="relative">
-                  <span aria-hidden className={`absolute -left-px top-0 h-full w-[2px] origin-top bg-[var(--ink)] transition-transform duration-500 ease-[var(--ease-physical)] ${st.step === i ? "scale-y-100" : "scale-y-0"}`} />
+                  <span aria-hidden className="absolute -left-px top-0 h-full w-[2px] origin-top bg-[var(--ink)]"
+                    style={{ transform: `scaleY(${st.step === i ? Math.max(0.04, st.local) : 0})` }} />
                   <button type="button" onClick={() => jump(i)} aria-current={st.step === i ? "step" : undefined}
                     className={`flex w-full items-baseline gap-4 py-2.5 pl-5 text-left transition-colors duration-300 ${st.step === i ? "text-[var(--ink)]" : "text-[var(--ink-muted)] hover:text-[var(--ink)]"}`}>
                     <span className="t-mono w-6 shrink-0">{String(i + 1).padStart(2, "0")}</span>
@@ -80,7 +92,16 @@ function HowPinned() {
                 </li>
               ))}
             </ol>
-            <div className="relative mt-auto min-h-[8.5rem]" aria-live="polite">
+            <button type="button" onClick={() => setPlaying((v) => !v)} aria-pressed={!playing}
+              className="t-mono mt-6 flex items-center gap-2 self-start pl-5 text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]">
+              <span aria-hidden className="flex size-3 items-center justify-center">
+                {playing
+                  ? <span className="flex gap-[3px]"><span className="block h-3 w-[3px] bg-current" /><span className="block h-3 w-[3px] bg-current" /></span>
+                  : <span className="block size-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-current" />}
+              </span>
+              {playing ? "Pause" : "Play"}
+            </button>
+            <div className="relative mt-auto min-h-[8.5rem]" aria-live={playing ? "off" : "polite"}>
               {STEPS.map((s, i) => (
                 <p key={i} className={`absolute inset-x-0 bottom-0 max-w-[38ch] text-lead transition-[opacity,transform] duration-500 ease-[var(--ease-physical)] ${st.step === i ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"}`}>
                   {s.body}
