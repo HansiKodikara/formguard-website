@@ -7,13 +7,8 @@ import type { SVGProps } from "react";
 const N = (cx: number, cy: number, r = 1.75) => <circle cx={cx} cy={cy} r={r} fill="currentColor" stroke="none" />;
 
 const ICONS = {
-  /** the suit: a body with nodes at every joint */
-  suit: (
-    <>
-      <path d="M9.4 3.2c.8 1.4 4.4 1.4 5.2 0L19 5l2.6 11.6-2.9.8L16.6 9.8V21H7.4V9.8L5.3 17.4l-2.9-.8L5 5z" />
-      {N(7.2, 6.4, 1.5)}{N(16.8, 6.4, 1.5)}{N(4.3, 12.2, 1.5)}{N(19.7, 12.2, 1.5)}
-    </>
-  ),
+  /** the suit: the shirt, plain */
+  suit: <path d="M9.4 3.2c.8 1.4 4.4 1.4 5.2 0L19 5l2.6 11.6-2.9.8L16.6 9.8V21H7.4V9.8L5.3 17.4l-2.9-.8L5 5z" />,
   /** a joint node */
   node: <><circle cx="12" cy="12" r="6" />{N(12, 12, 2.25)}</>,
   /** the haptic buzz: a node and its pulse */
