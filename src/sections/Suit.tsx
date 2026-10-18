@@ -1,69 +1,79 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Section } from "../components/Section";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "../components/Button";
+import { CueCard } from "../components/CueCard";
+import { Flag } from "../components/Flag";
 import { Kicker } from "../components/Kicker";
-import { Segmented } from "../components/Segmented";
+import { Readout } from "../components/Readout";
+import { RepStrip } from "../components/RepStrip";
+import { Section } from "../components/Section";
+import type { Caps } from "../lib/env";
+import { repAt, repDepth, useClock } from "../viz/lift";
+import { RepTrace } from "../viz/RepTrace";
+import { judge, type RepParams } from "../viz/signal";
 
 /**
- * The product: the suit from the Blender scene in suit-render/, as a 3D model you can turn (public/models, from
- * suit-render/scripts/export_web.py), loaded only when the section comes near. Until then, or without WebGL, a
- * studio render stands in (public/suit, from scripts/suit-images.sh); it is on a dark sweep, so this section is
- * Iron and its edges are feathered into it with a mask; the pixels are untouched.
+ * Right after the suit in the hero: what's in it, and what it does with it. The specs, and the instrument: a live
+ * set, every rep checked against the lifter's own normal.
  */
-const SuitViewer = lazy(() => import("../three/SuitViewer"));
-
-function hasWebGL() {
-  try { return !!document.createElement("canvas").getContext("webgl2"); } catch { return false; }
-}
-/** a studio render stands in while the model loads, and for browsers without WebGL */
-const POSTERS = {
-  on: { id: "07_body_three_quarter_front",
-    alt: "The FormGuard suit worn on a mannequin, three-quarter front view: a black long-sleeve compression shirt and full-length tights with thin silver seam lines and small sensor pods at the arms and legs." },
-  off: { id: "05_suit_three_quarter_back",
-    alt: "The full FormGuard suit, shirt and tights together, three-quarter back view, with the controller on the left upper arm." },
-};
-
-const src = (id: string, w: number) => `/suit/${id}-${w}.webp`;
-const srcSet = (id: string) => `${src(id, 400)} 400w, ${src(id, 800)} 800w, ${src(id, 1600)} 1600w`;
-
-/** feather the studio backdrop into the section: a soft ellipse, so there's no box around it */
-const FEATHER: React.CSSProperties = {
-  maskImage: "linear-gradient(to right, transparent, #000 32%, #000 68%, transparent), linear-gradient(to bottom, transparent, #000 14%, #000 80%, transparent)",
-  WebkitMaskImage: "linear-gradient(to right, transparent, #000 32%, #000 68%, transparent), linear-gradient(to bottom, transparent, #000 14%, #000 80%, transparent)",
-  maskComposite: "intersect",
-  WebkitMaskComposite: "source-in",
-};
-
 const SPECS = [
   { n: "12", label: "Sensor pods", note: "Wrists, upper arms, shoulders, thighs and shins on both sides, plus the upper and lower back" },
   { n: "2", label: "Pieces", note: "A long-sleeve shirt and full-length tights" },
   { n: "1", label: "Controller", note: "On the left upper arm, wired to every pod by the silver seams" },
 ];
 
-export function Suit() {
-  const [body, setBody] = useState<"on" | "off">("on");
-  const [sensors, setSensors] = useState(true);
-  const [near, setNear] = useState(false);
-  const [webgl] = useState(hasWebGL);
-  const fig = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const el = fig.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setNear(true); io.disconnect(); } }, { rootMargin: "400px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  const shot = POSTERS[body];
-  const poster = (
-    <img src={src(shot.id, 800)} srcSet={srcSet(shot.id)} sizes="(min-width: 1024px) 45vw, 92vw"
-      alt={shot.alt} width={1600} height={2400} loading="lazy" decoding="async" style={FEATHER}
-      className="mx-auto block h-full w-auto max-w-full motion-safe:animate-[fg-fade_400ms_var(--ease-physical)]" />
-  );
+const PERIOD = 3.6, SET = 8;
+/** The set on the monitor: steady reps, with the left knee caving on rep 4. */
+const rep = (i: number): RepParams => ({ depth: repDepth(i), cave: i % SET === 3 ? 10 : 0, seed: i });
+
+function LiveSet({ caps }: { caps: Caps }) {
+  const panel = useRef<HTMLDivElement>(null);
+  const [playing, setPlaying] = useState(true);
+  // reduced motion: start still, on the rep after the fault; the visitor can press play
+  useEffect(() => { if (caps.ready && caps.reduced) setPlaying(false); }, [caps.ready, caps.reduced]);
+  const clock = useClock(playing, panel);
+  // reduced motion opens on the rep after the fault, so the still tells the whole story
+  const t = (caps.reduced ? PERIOD * 4.35 : 0) + clock;
+
+  const { index, phase } = repAt(t, PERIOD);
+  const set = Math.floor(index / SET), inSet = index % SET;
+  const done = Array.from({ length: inSet }, (_, k) => rep(set * SET + k));
+  const live = { r: rep(index), p: phase };
+  const last = done[done.length - 1];
+  const fault = last ? judge(last) : null;
+
   return (
-    <Section id="suit" surface="iron" label="The suit">
-      <div className="wrap grid-12 items-center gap-y-10 pb-24 pt-24 lg:pb-32 lg:pt-32">
+    <div ref={panel} className="rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Readout status="live">Back squat · set {set + 1} · rep {String(inSet + 1).padStart(2, "0")}</Readout>
+        <Button variant="quiet" size="sm" onClick={() => setPlaying((p) => !p)} aria-pressed={!playing}>{playing ? "Pause" : "Play"}</Button>
+      </div>
+      <RepTrace className="mt-5" compact reps={done} live={live}
+        title="A live squat set. Each rep is drawn as knee bend and left-knee travel against a shaded band, the lifter's normal. On rep 4 the left knee caves in and its trace leaves the band." />
+      <RepStrip className="mt-6" label="This set" reps={done.map((r) => ({ depth: r.depth, fault: judge(r)?.joint }))} slots={SET} />
+      <div className="mt-5 min-h-[9rem]" aria-live="polite">
+        {fault ? (
+          <CueCard joint={fault.joint} cue={fault.cue} fix={fault.fix} meta={`Rep ${inSet}`} className="max-w-none bg-[var(--ground)]" />
+        ) : last ? (
+          <div className="rounded-md border border-[var(--line)] bg-[var(--ground)] p-4">
+            <Flag tone="clear">Rep {inSet} · in range</Flag>
+            <p className="mt-2 text-[16px]">Within your normal. No cue.</p>
+          </div>
+        ) : (
+          <p className="t-mono pt-2 text-[var(--ink-muted)]">First rep of the set. Hover the trace to read it.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function Suit({ caps }: { caps: Caps }) {
+  return (
+    <Section id="suit" surface="chalk" label="The suit">
+      <div className="wrap grid-12 items-center gap-y-12 pb-24 pt-24 lg:pb-32 lg:pt-32">
         <div className="col-span-12 lg:col-span-5">
           <Kicker index="01">The suit</Kicker>
           <h2 className="t-head mt-6 text-h2">The sensors are sewn in.</h2>
+          <p className="mt-6 max-w-[38ch] text-lead text-[var(--ink)]/90">Every rep is read at the joints and checked against your own normal, live.</p>
           <dl className="mt-10 divide-y divide-[var(--line)] border-y border-[var(--line)]">
             {SPECS.map((s) => (
               <div key={s.label} className="grid grid-cols-[3.5rem_1fr] items-baseline gap-x-4 py-4">
@@ -75,28 +85,10 @@ export function Suit() {
               </div>
             ))}
           </dl>
-
-          {webgl && (
-            <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <Segmented label="Show the suit" value={body} onChange={setBody}
-                options={[{ value: "on", label: "On the body" }, { value: "off", label: "Suit only" }]} />
-              <button type="button" aria-pressed={sensors} onClick={() => setSensors(!sensors)}
-                className={`h-12 rounded-md border px-4 text-[15px] font-semibold transition-colors ${sensors ? "border-[var(--ink)] text-[var(--ink)]" : "border-[var(--line-strong)] text-[var(--ink-muted)] hover:text-[var(--ink)]"}`}>
-                {sensors ? "Hide sensors" : "Show sensors"}
-              </button>
-              <p className="t-label basis-full text-[var(--ink-muted)]">Drag to turn it</p>
-            </div>
-          )}
         </div>
-
-        <figure ref={fig} className="relative col-span-12 mx-auto aspect-[2/3] max-h-[88svh] w-full max-w-[36rem] lg:col-span-6 lg:col-start-7">
-          {webgl && near ? (
-            <Suspense fallback={poster}>
-              <SuitViewer showBody={body === "on"} sensors={sensors}
-                label={`3D model of the FormGuard suit${body === "on" ? " on a mannequin" : ""}: a black long-sleeve compression shirt and full-length tights with silver seam lines and sensor pods. Drag to turn it.`} />
-            </Suspense>
-          ) : <div key={shot.id} className="h-full">{poster}</div>}
-        </figure>
+        <div className="col-span-12 lg:col-span-6 lg:col-start-7">
+          <LiveSet caps={caps} />
+        </div>
       </div>
     </Section>
   );

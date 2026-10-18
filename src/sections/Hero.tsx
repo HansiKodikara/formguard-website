@@ -1,39 +1,19 @@
-import { useEffect, useRef, useState } from "react";
-import { Button, ButtonLink } from "../components/Button";
-import { Readout } from "../components/Readout";
-import { RepStrip } from "../components/RepStrip";
-import { CueCard } from "../components/CueCard";
-import { Flag } from "../components/Flag";
+import { ButtonLink } from "../components/Button";
 import { Section } from "../components/Section";
+import { SuitStage } from "../components/SuitStage";
 import { SITE } from "../config";
-import type { Caps } from "../lib/env";
-import { RepTrace } from "../viz/RepTrace";
-import { judge, type RepParams } from "../viz/signal";
-import { repAt, repDepth, useClock } from "../viz/lift";
 
-const PERIOD = 3.6, SET = 8;
-/** The set on the monitor: steady reps, with the left knee caving on rep 4. */
-const rep = (i: number): RepParams => ({ depth: repDepth(i), cave: i % SET === 3 ? 10 : 0, seed: i });
+/** The landing view: the suit itself, on Iron (its own colour), turnable, every sensor marked. */
+const FACTS = [
+  { n: "12", label: "Sensors" },
+  { n: "2", label: "Pieces" },
+  { n: "1", label: "Controller" },
+];
 
-export function Hero({ caps }: { caps: Caps }) {
-  const panel = useRef<HTMLDivElement>(null);
-  const [playing, setPlaying] = useState(true);
-  // reduced motion: start still, on the rep after the fault; the visitor can press play
-  useEffect(() => { if (caps.ready && caps.reduced) setPlaying(false); }, [caps.ready, caps.reduced]);
-  const clock = useClock(playing, panel);
-  // reduced motion opens on the rep after the fault, so the still tells the whole story
-  const t = (caps.reduced ? PERIOD * 4.35 : 0) + clock;
-
-  const { index, phase } = repAt(t, PERIOD);
-  const set = Math.floor(index / SET), inSet = index % SET;
-  const done = Array.from({ length: inSet }, (_, k) => rep(set * SET + k));
-  const live = { r: rep(index), p: phase };
-  const last = done[done.length - 1];
-  const fault = last ? judge(last) : null;
-
+export function Hero() {
   return (
-    <Section id="top" surface="chalk" label="Introduction" className="overflow-hidden">
-      <div className="wrap relative grid-12 min-h-[100svh] content-center gap-y-12 pb-12 pt-[calc(var(--header-h)+clamp(2rem,5vh,4rem))]">
+    <Section id="top" surface="iron" label="Introduction" className="overflow-hidden">
+      <div className="wrap relative grid-12 min-h-[100svh] content-center items-center gap-y-6 pb-12 pt-[calc(var(--header-h)+clamp(2rem,5vh,4rem))]">
         <div className="col-span-12 lg:col-span-6">
           <p className="t-label flex items-center gap-3 text-[var(--ink-muted)]">
             <span aria-hidden className="h-px w-6 bg-[var(--ink)]" />In development · test lifters wanted
@@ -48,32 +28,18 @@ export function Hero({ caps }: { caps: Caps }) {
               Try a rep yourself
             </a>
           </div>
+          {/* the kit, in three numbers */}
+          <dl className="mt-12 hidden max-w-[28rem] grid-cols-3 sm:grid border-t border-[var(--line)] pt-5">
+            {FACTS.map((f) => (
+              <div key={f.label}>
+                <dt className="t-label text-[var(--ink-muted)]">{f.label}</dt>
+                <dd className="t-num mt-1 text-[40px] leading-none">{f.n}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
 
-        {/* the instrument: a live set, every rep checked against the lifter's own normal */}
-        <div ref={panel} className="col-span-12 lg:col-span-6 lg:col-start-7">
-          <div className="rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Readout status="live">Back squat · set {set + 1} · rep {String(inSet + 1).padStart(2, "0")}</Readout>
-              <Button variant="quiet" size="sm" onClick={() => setPlaying((p) => !p)} aria-pressed={!playing}>{playing ? "Pause" : "Play"}</Button>
-            </div>
-            <RepTrace className="mt-5" compact reps={done} live={live}
-              title="A live squat set. Each rep is drawn as knee bend and left-knee travel against a shaded band, the lifter's normal. On rep 4 the left knee caves in and its trace leaves the band." />
-            <RepStrip className="mt-6" label="This set" reps={done.map((r) => ({ depth: r.depth, fault: judge(r)?.joint }))} slots={SET} />
-            <div className="mt-5 min-h-[9rem]" aria-live="polite">
-              {fault ? (
-                <CueCard joint={fault.joint} cue={fault.cue} fix={fault.fix} meta={`Rep ${inSet}`} className="max-w-none bg-[var(--ground)]" />
-              ) : last ? (
-                <div className="rounded-md border border-[var(--line)] bg-[var(--ground)] p-4">
-                  <Flag tone="clear">Rep {inSet} · in range</Flag>
-                  <p className="mt-2 text-[16px]">Within your normal. No cue.</p>
-                </div>
-              ) : (
-                <p className="t-mono pt-2 text-[var(--ink-muted)]">First rep of the set. Hover the trace to read it.</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <SuitStage eager className="col-span-12 lg:col-span-6" />
       </div>
     </Section>
   );

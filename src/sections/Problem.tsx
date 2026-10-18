@@ -12,7 +12,7 @@ export function Problem() {
   const [rep, setRep] = useState<"3" | "4">("3");
   const slip = rep === "4";
   return (
-    <Section id="problem" surface="raised" label="The problem">
+    <Section id="problem" surface="iron" label="The problem">
       <div className="wrap pb-28 pt-28 lg:pb-40 lg:pt-40">
         <Kicker index="02">The problem</Kicker>
 

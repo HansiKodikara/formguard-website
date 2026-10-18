@@ -49,7 +49,7 @@ function Controls() {
 function Fit() {
   const { camera, size } = useThree();
   useEffect(() => {
-    if (size.width < 520) camera.position.sub(TARGET).multiplyScalar(1.3).add(TARGET);
+    if (size.width < 520) camera.position.sub(TARGET).multiplyScalar(1.15).add(TARGET);
   }, [camera]); // eslint-disable-line react-hooks/exhaustive-deps -- once, at the starting width
   return null;
 }
