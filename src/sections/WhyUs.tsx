@@ -24,7 +24,7 @@ export function WhyUs() {
   return (
     <Section id="why" surface="raised" label="Why us">
       <div className="wrap pb-24 pt-24 lg:pb-32 lg:pt-32">
-        <Kicker index="02">Why us</Kicker>
+        <Kicker index="01">Why us</Kicker>
         <div className="mt-8 grid-12">
           <table className="col-span-12 w-full table-fixed border-collapse lg:col-span-10">
             <caption className="t-head mb-10 text-left text-h3">Why not a trainer or an app?</caption>

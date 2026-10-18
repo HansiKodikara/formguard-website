@@ -1,7 +1,6 @@
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { Hero } from "./sections/Hero";
-import { Suit } from "./sections/Suit";
 import { WhyUs } from "./sections/WhyUs";
 import { HowItWorks } from "./sections/HowItWorks";
 import { TryIt } from "./sections/TryIt";
@@ -16,7 +15,6 @@ export function App() {
       <Header />
       <main id="main">
         <Hero />
-        <Suit caps={caps} />
         <WhyUs />
         <HowItWorks caps={caps} />
         <TryIt />

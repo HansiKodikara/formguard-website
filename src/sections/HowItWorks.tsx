@@ -29,7 +29,7 @@ export function HowItWorks({ caps }: { caps: Caps }) {
         <div className="sticky top-0 h-[100svh] min-h-[560px] overflow-hidden">
           <div className="wrap grid-12 h-full content-center items-center gap-y-4 pb-6 pt-[calc(var(--header-h)+1rem)]">
             <div className="col-span-12 md:col-span-5">
-              <Kicker index="03">How it works</Kicker>
+              <Kicker index="02">How it works</Kicker>
               <h2 className="t-head mt-5 max-w-[16ch] text-[clamp(1.75rem,3.2vw,3.5rem)] leading-[1]">It learns you, then catches the rep that drifts.</h2>
 
               {/* desktop: all four, the current one lit */}

@@ -51,7 +51,7 @@ export function TestLifter() {
     <Section id="test-lifter" surface="chalk" label="Become a test lifter">
       <div className="wrap grid-12 gap-y-12 pb-28 pt-28 lg:pb-40 lg:pt-36">
         <div className="col-span-12 lg:col-span-5">
-          <Kicker index="05">Test lifters</Kicker>
+          <Kicker index="04">Test lifters</Kicker>
           <h2 className="t-head mt-6 text-h2">Become a test lifter.</h2>
           <p className="mt-6 max-w-[40ch] text-lead">
             FormGuard learns from real lifters. Test lifters wear the suit for a few sessions and help build the form database: what a good rep and a slipping rep look like, across different bodies.

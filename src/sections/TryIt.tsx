@@ -51,7 +51,7 @@ export function TryIt() {
     <Section id="try" surface="iron" label="Try it">
       <div className="wrap grid-12 gap-y-12 pb-28 pt-28 lg:pb-36 lg:pt-36">
         <div className="col-span-12 lg:col-span-5">
-          <Kicker index="04">Try it</Kicker>
+          <Kicker index="03">Try it</Kicker>
           <h2 className="t-head mt-6 text-h2">Do a rep. See what it sees.</h2>
           <p className="mt-6 max-w-[40ch] text-lead text-[var(--ink)]/90">
             Set how deep you go and how much your left knee caves, then do a rep. FormGuard checks it against your own normal, the shaded band, and tells you the one thing to fix.
