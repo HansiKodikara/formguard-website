@@ -1,6 +1,6 @@
 """Export the FormGuard suit on its mannequin as one web model (glTF binary, Draco-compressed).
 
-    blender -b suit-render/formguard_suit.blend --python suit-render/scripts/export_web.py -- [--out path.glb] [--scale 1.0] [--sheen 0.35] [--pods path.json]
+    blender -b suit-render/formguard_suit.blend --python suit-render/scripts/export_web.py -- [--out path.glb] [--scale 1.0] [--sheen 0.35] [--inset 0.0025] [--pods path.json]
 
 Bakes every modifier, curve bevel and geometry-nodes detail into plain meshes, cuts each piece down to a triangle
 budget (--scale multiplies every budget), and joins them into two nodes: FG_Suit (shirt, tights and all details) and
@@ -81,6 +81,12 @@ pieces = list(dict.fromkeys(o for cname in SRC_COLLS for o in bpy.data.collectio
 suit = [bake(o, dg) for o in pieces]
 suit = join(suit, 'FG_Suit')
 body = join([bake(shown_body, dg)], 'FG_Body')
+# the decimated suit sits within ~1 mm of the decimated body (and dips under it on the buttocks and shoulder blades),
+# which z-fights in the browser's depth buffer. Pull the body in a little; nobody sees 2.5 mm with the suit off.
+BODY_INSET = float(opt('--inset', 0.0025))
+body.data.update()
+for v in body.data.vertices:
+    v.co -= v.normal * BODY_INSET
 # ---------------------------------------------------------------- sensor positions, for the viewer's callouts
 def pod_centres(names):
     """centres of the pod dots (each dot is one small island), clustered by distance"""
@@ -99,8 +105,8 @@ def pod_centres(names):
 def pod_name(c, garment):
     side = 'L' if c.x > 0.02 else 'R' if c.x < -0.02 else ''
     if garment == 'tights':
-        return 'LowerBack' if not side else ('Thigh_' if c.z > 0.45 else 'Shin_') + side
-    if not side: return 'ShoulderBlades'
+        return ('Thigh_' if c.z > 0.45 else 'Shin_') + side
+    if not side: return 'ShoulderBlades' if c.z > 1.2 else 'LowerBack'
     if c.z > 1.40 and abs(c.x) < 0.2: return 'Trap_' + side
     return ('Bicep_' if c.z > 1.12 else 'Wrist_') + side
 

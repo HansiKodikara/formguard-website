@@ -10,3 +10,4 @@ dist-ssr/
 scripts/figure/.venv/
 scripts/figure/cache/
 *.tsbuildinfo
+*.blend1

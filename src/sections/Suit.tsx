@@ -19,7 +19,7 @@ const POSTERS = {
   on: { id: "07_body_three_quarter_front",
     alt: "The FormGuard suit worn on a mannequin, three-quarter front view: a black long-sleeve compression shirt and full-length tights with thin silver seam lines and small sensor pods at the arms and legs." },
   off: { id: "05_suit_three_quarter_back",
-    alt: "The full FormGuard suit, shirt and tights together, three-quarter back view, with the controller on the back waistband." },
+    alt: "The full FormGuard suit, shirt and tights together, three-quarter back view, with the controller on the left upper arm." },
 };
 
 const src = (id: string, w: number) => `/suit/${id}-${w}.webp`;
@@ -36,7 +36,7 @@ const FEATHER: React.CSSProperties = {
 const SPECS = [
   { n: "12", label: "Sensor pods", note: "Wrists, upper arms, shoulders, thighs and shins on both sides, plus the upper and lower back" },
   { n: "2", label: "Pieces", note: "A long-sleeve shirt and full-length tights" },
-  { n: "1", label: "Controller", note: "On the back waistband, wired to every pod by the silver seams" },
+  { n: "1", label: "Controller", note: "On the left upper arm, wired to every pod by the silver seams" },
 ];
 
 export function Suit() {

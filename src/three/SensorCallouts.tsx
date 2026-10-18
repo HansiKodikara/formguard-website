@@ -20,8 +20,8 @@ export const label = (id: string) => {
   const [k, side] = id.split("_");
   return side ? `${NAMES[k]} · ${side}` : NAMES[k];
 };
-// leader rise per pod (m): the lower-back pod sits right under the controller, so its leader goes down
-const RISE: Record<string, number> = { LowerBack: -0.07, Controller: 0.06 };
+// leader rise per pod (m): the left bicep pod sits right under the controller, so its leader goes down
+const RISE: Record<string, number> = { Bicep_L: -0.07, Controller: 0.06 };
 
 const R_IN = 0.024, R_OUT = 0.036, OUT = 0.085, ELBOW = 0.07;
 const UP = new THREE.Vector3(0, 1, 0);
