@@ -11,3 +11,5 @@ scripts/figure/.venv/
 scripts/figure/cache/
 *.tsbuildinfo
 *.blend1
+.data/
+.vercel/

@@ -5,6 +5,6 @@ export const SITE = {
   oneLiner: "FormGuard helps lifters fix their form without a personal trainer, using a sensor suit and AI.",
   /** placeholder — replace with the real inbox before launch */
   contactEmail: "hello@formguard.example",
-  /** test-lifter form endpoint (Formspree, a Google Apps Script URL, …). Set VITE_TEST_LIFTER_ENDPOINT. */
-  formEndpoint: import.meta.env.VITE_TEST_LIFTER_ENDPOINT as string | undefined,
+  /** where the waitlist form posts: the site's own API (api/signup.ts), unless VITE_TEST_LIFTER_ENDPOINT says otherwise */
+  formEndpoint: (import.meta.env.VITE_TEST_LIFTER_ENDPOINT as string | undefined) || "/api/signup",
 };
