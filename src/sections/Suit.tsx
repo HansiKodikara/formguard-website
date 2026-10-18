@@ -1,12 +1,19 @@
-import { useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Section } from "../components/Section";
 import { Kicker } from "../components/Kicker";
+import { Segmented } from "../components/Segmented";
 
 /**
- * The product: the suit, from the Blender renders in suit-render/ (web copies in public/suit/, made by
- * scripts/suit-images.sh). One large viewer and a strip of every shot. The renders sit on a dark studio sweep,
- * so this section is Iron, and the viewer's edges are feathered into it with a mask; the pixels are untouched.
+ * The product: the suit from the Blender scene in suit-render/. By default a 3D model you can turn
+ * (public/models, from suit-render/scripts/export_web.py), loaded only when the section comes near; the studio
+ * renders (public/suit, from scripts/suit-images.sh) sit in a strip below it. The renders are on a dark sweep,
+ * so this section is Iron and a photo's edges are feathered into it with a mask; the pixels are untouched.
  */
+const SuitViewer = lazy(() => import("../three/SuitViewer"));
+
+function hasWebGL() {
+  try { return !!document.createElement("canvas").getContext("webgl2"); } catch { return false; }
+}
 type Shot = { id: string; label: string; alt: string };
 const SHOTS: Shot[] = [
   { id: "07_body_three_quarter_front", label: "On the body · ¾",
@@ -45,8 +52,25 @@ const SPECS = [
 ];
 
 export function Suit() {
-  const [i, setI] = useState(0);
-  const shot = SHOTS[i];
+  const [i, setI] = useState(-1);                       // -1: the 3D model, otherwise a photo
+  const [body, setBody] = useState<"on" | "off">("on");
+  const [near, setNear] = useState(false);
+  const [webgl] = useState(hasWebGL);
+  const fig = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = fig.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setNear(true); io.disconnect(); } }, { rootMargin: "400px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  const show3d = i < 0 && webgl;
+  const shot = SHOTS[i < 0 ? (body === "on" ? 0 : 7) : i];
+  const poster = (
+    <img src={src(shot.id, 800)} srcSet={srcSet(shot.id)} sizes="(min-width: 1024px) 45vw, 92vw"
+      alt={shot.alt} width={1600} height={2400} loading="lazy" decoding="async" style={FEATHER}
+      className="mx-auto block h-full w-auto max-w-full motion-safe:animate-[fg-fade_400ms_var(--ease-physical)]" />
+  );
   return (
     <Section id="suit" surface="iron" label="The suit">
       <div className="wrap grid-12 items-center gap-y-10 pb-24 pt-24 lg:pb-32 lg:pt-32">
@@ -65,22 +89,34 @@ export function Suit() {
             ))}
           </dl>
 
-          {/* every shot: pick one to see it large */}
-          <div role="group" aria-label="Views of the suit" className="-mx-1 mt-10 flex gap-2 overflow-x-auto px-1 pb-2 lg:grid lg:grid-cols-4 lg:overflow-visible">
+          {webgl && (
+            <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <Segmented label="Show the suit" value={body} onChange={(v) => { setBody(v); setI(-1); }}
+                options={[{ value: "on", label: "On the body" }, { value: "off", label: "Suit only" }]} />
+              <p className="t-label text-[var(--ink-muted)]">{i < 0 ? "Drag to turn it" : "Studio photo"}</p>
+            </div>
+          )}
+
+          {/* the studio renders: pick one to see it large; the first tile goes back to the 3D model */}
+          <p className="t-label mt-10 text-[var(--ink-muted)]">Studio photos</p>
+          <div role="group" aria-label="Views of the suit" className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-2 lg:grid lg:grid-cols-4 lg:overflow-visible">
             {SHOTS.map((s, k) => (
-              <button key={s.id} type="button" onClick={() => setI(k)} aria-pressed={k === i} aria-label={s.label}
+              <button key={s.id} type="button" onClick={() => setI(k === i ? -1 : k)} aria-pressed={k === i} aria-label={s.label}
                 className={`group relative w-[4.5rem] shrink-0 overflow-hidden rounded-sm border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ink)] lg:w-auto ${k === i ? "border-[var(--ink)]" : "border-[var(--line)] hover:border-[var(--line-strong)]"}`}>
                 <img src={src(s.id, 400)} alt="" width={400} height={600} loading="lazy" decoding="async" className="block aspect-[2/3] w-full object-cover" />
               </button>
             ))}
           </div>
-          <p className="t-label mt-3 text-[var(--ink-muted)]" aria-live="polite">{shot.label}</p>
+          <p className="t-label mt-3 text-[var(--ink-muted)]" aria-live="polite">{i < 0 ? (webgl ? "3D model" : shot.label) : shot.label}</p>
         </div>
 
-        <figure className="col-span-12 lg:col-span-6 lg:col-start-7">
-          <img key={shot.id} src={src(shot.id, 800)} srcSet={srcSet(shot.id)} sizes="(min-width: 1024px) 45vw, 92vw"
-            alt={shot.alt} width={1600} height={2400} loading="lazy" decoding="async" style={FEATHER}
-            className="mx-auto block aspect-[2/3] h-auto max-h-[88svh] w-auto max-w-full motion-safe:animate-[fg-fade_400ms_var(--ease-physical)]" />
+        <figure ref={fig} className="relative col-span-12 mx-auto aspect-[2/3] max-h-[88svh] w-full max-w-[36rem] lg:col-span-6 lg:col-start-7">
+          {show3d && near ? (
+            <Suspense fallback={poster}>
+              <SuitViewer showBody={body === "on"}
+                label={`3D model of the FormGuard suit${body === "on" ? " on a mannequin" : ""}: a black long-sleeve compression shirt and full-length tights with silver seam lines and sensor pods. Drag to turn it.`} />
+            </Suspense>
+          ) : <div key={shot.id} className="h-full">{poster}</div>}
         </figure>
       </div>
     </Section>

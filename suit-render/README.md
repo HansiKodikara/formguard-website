@@ -29,6 +29,22 @@ Shots: `01_shirt_front`, `02_shirt_back`, `03_tights_front`, `04_tights_back`, `
 Inside the Blender UI, run `scripts/build_all.py` from the Text Editor to rebuild, then call
 `FG_setup_shot("02_shirt_back")` in the Python console to frame a shot.
 
+## Web 3D model
+
+The website's turnable suit (`public/models/formguard-suit.glb`) is exported from this scene. Re-export it after
+any change to the suit:
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender -b suit-render/formguard_suit.blend \
+  --python suit-render/scripts/export_web.py
+```
+
+It bakes every modifier and seam into plain meshes, reduces each piece to a triangle budget (about 186k in all),
+and writes one Draco-compressed file of about 0.4 MB with two parts, `FG_Suit` and `FG_Body` (the mannequin). The
+.blend is not changed. Options: `--out`, `--scale` (multiplies the triangle budgets), `--sheen` (how much of the
+knit's sheen is kept: glTF has no sheen weight, so it is folded into the colour). The fine knit bump is a Blender
+shader and is not exported; the seams, wrinkles, pods and logos are geometry and are.
+
 ## Scripts
 
 | File | What it builds |
@@ -41,6 +57,7 @@ Inside the Blender UI, run `scripts/build_all.py` from the Text Editor to rebuil
 | `fg_stage.py` | Sweep backdrop, key, rim and fill lights, 85 mm camera, ghost body, shot framing, exposure. |
 | `build_all.py` | Runs all of the above in order. |
 | `render_all.py` | Command-line renderer. |
+| `export_web.py` | The website's 3D model (glTF), see above. |
 
 ## Sources and credits
 
