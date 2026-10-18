@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
@@ -81,12 +81,28 @@ function Fit() {
   return null;
 }
 
+/**
+ * GPU memory: touch screens (phones, whose GPU the page shares with the curl frames) draw at 1.5x, not 2x, with a
+ * 1024 shadow map and a smaller floor shadow: well under half the desktop's. (Keep the MSAA: without it the black
+ * suit's outline steps visibly.) Off screen, nothing is drawn.
+ */
+const LITE = TOUCH;
+
 /** onReady: the model is in and drawing; onLost: the browser took the WebGL context away (a GPU reset) */
 export default function SuitViewer({ sensors, label, onReady, onLost }: { sensors: boolean; label: string; onReady?: () => void; onLost?: () => void }) {
   const labels = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const [onScreen, setOnScreen] = useState(true);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setOnScreen(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
-    <div className="relative h-full w-full">
-      <Canvas role="img" aria-label={label} dpr={[1, 2]} shadows
+    <div ref={box} className="relative h-full w-full">
+      <Canvas role="img" aria-label={label} dpr={LITE ? [1, 1.5] : [1, 2]} shadows frameloop={onScreen ? "always" : "never"}
         camera={{ fov: 26, position: [1.7, 1.2, 4.0], near: 0.1, far: 30 }}
         gl={{ antialias: true, toneMapping: THREE.AgXToneMapping, toneMappingExposure: 1.15 }}
         style={TOUCH ? { touchAction: "auto" } : { touchAction: "pan-y", cursor: "grab" }}
@@ -98,7 +114,7 @@ export default function SuitViewer({ sensors, label, onReady, onLost }: { sensor
         <hemisphereLight args={["#F2EDE4", "#1B1A17", 0.35]} />
         {/* key: soft, front left, high */}
         <directionalLight position={[-2.2, 3.4, 2.6]} intensity={2.6} castShadow
-          shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02}
+          shadow-mapSize={LITE ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02}
           shadow-camera-left={-1.2} shadow-camera-right={1.2} shadow-camera-top={2.2} shadow-camera-bottom={-0.2} />
         {/* rims: behind on both sides, so the black fabric keeps its outline */}
         <directionalLight position={[2.6, 1.6, -2.4]} intensity={2.2} />
@@ -115,7 +131,8 @@ export default function SuitViewer({ sensors, label, onReady, onLost }: { sensor
         <Suit onReady={onReady} />
         {sensors && <SensorCallouts labels={labels} />}
         <Fit />
-        <ContactShadows position={[0, 0.002, 0]} scale={2.4} blur={2.4} opacity={0.55} far={1.2} resolution={512} color="#000000" />
+        {/* drawn once: the suit never moves, only the camera */}
+        <ContactShadows frames={1} position={[0, 0.002, 0]} scale={2.4} blur={2.4} opacity={0.55} far={1.2} resolution={LITE ? 256 : 512} color="#000000" />
         {TOUCH ? <Spin /> : <Controls />}
       </Canvas>
       {sensors && <SensorLabels ref={labels} />}

@@ -8,14 +8,17 @@ import DATA from "../viz/curlFrames.json";
  * scrolls through the reps, and the story eases towards the scroll position, so it plays as motion, never jumps.
  *
  * The rendered frames (suit-render/squat-video, render_squat.py --curl): the clean lift bottom to top, then the
- * faulty one; the way down is the same frames backwards. They're decoded up front and the nearest is drawn on a
- * canvas, so nothing is ever shown before it has decoded (swapping stacked <img>s flickered). Not a cross-fade: the
+ * faulty one; the way down is the same frames backwards. The ones near the story's frame are decoded ahead and the
+ * nearest decoded is drawn on a canvas, so nothing is ever shown before it has decoded (swapping stacked <img>s
+ * flickered). Not a cross-fade: the
  * dumbbell moves a few centimetres between frames, and a dark object blended over the light page reads as a double
  * edge.
  */
 const C = DATA as { frames: number; steps: number; size: [number, number]; elbowL: [number, number][]; dumbbell: [number, number][] };
 const S = C.steps;
 const url = (i: number) => `/demo/curl-${String(i).padStart(2, "0")}.webp`;
+/** the files' width (encode_squat.py), less than the render's (C.size): never decode them bigger than that */
+const FILE_W = 720;
 /** how many screens of scrolling the two reps take */
 export const SCREENS = 2.6;
 /** past this share of the faulty lift the elbow has drifted out of his normal */
@@ -70,30 +73,85 @@ export function useTrackProgress(track: React.RefObject<HTMLElement | null>, red
   return p;
 }
 
-/** Every frame decoded, once the stage is near. */
-function useFrames(box: React.RefObject<HTMLElement | null>) {
-  const frames = useRef<(ImageBitmap | HTMLImageElement | null)[]>([]);
+/** frames kept decoded either side of the one on show; the rest wait compressed (all 80 are 640 KB) */
+const WINDOW = 8;
+/** phones decode at 1.5x density at most: as sharp as the 3D hero there, and half the memory of 2x */
+const FRAME_DPR = typeof window !== "undefined" && window.matchMedia("(hover: none) and (pointer: coarse)").matches ? 1.5 : 2;
+type Bitmap = ImageBitmap | HTMLImageElement;
+
+/** One frame decoded at `w` pixels wide (the stage's real size, not the file's), or at full size where resizing
+ * isn't supported. */
+async function decode(blob: Blob, w: number): Promise<Bitmap> {
+  if (typeof createImageBitmap === "function") {
+    const h = Math.round((w * C.size[1]) / C.size[0]);
+    try { return await createImageBitmap(blob, { resizeWidth: w, resizeHeight: h, resizeQuality: "high" }); }
+    catch { return await createImageBitmap(blob); }
+  }
+  const im = new Image();
+  im.src = URL.createObjectURL(blob);
+  await im.decode();
+  return im;
+}
+const release = (bm: Bitmap) => { if ("close" in bm) bm.close(); else URL.revokeObjectURL(bm.src); };
+
+/**
+ * The frames, once the stage is near: all fetched (compressed, small), but only those within WINDOW of frame `f`
+ * decoded, at the size the stage is drawn, and the ones scrolled far past given back. All 80 decoded at full size
+ * were 210 MB, which on a phone shares the GPU with the hero's 3D suit; this keeps it to about 20 frames, a few
+ * MB each at most (about 25 MB in all on a phone).
+ */
+function useFrames(box: React.RefObject<HTMLElement | null>, f: number) {
+  const blobs = useRef<(Blob | null)[]>(new Array(C.frames).fill(null));
+  const frames = useRef(new Map<number, Bitmap>());
+  const pending = useRef(new Set<number>());
+  const [fetched, setFetched] = useState(0);
   const [loaded, setLoaded] = useState(0);
+  const dead = useRef(false);
+
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    let dead = false;
+    dead.current = false;
     const io = new IntersectionObserver(([e]) => {
       if (!e.isIntersecting) return;
       io.disconnect();
-      frames.current = new Array(C.frames).fill(null);
       for (let i = 0; i < C.frames; i++) {
-        const im = new Image();
-        im.src = url(i + 1);
-        im.decode()
-          .then((): Promise<ImageBitmap | HTMLImageElement> | HTMLImageElement => (typeof createImageBitmap === "function" ? createImageBitmap(im) : im))
-          .then((bm) => { if (!dead) { frames.current[i] = bm; setLoaded((n) => n + 1); } })
+        fetch(url(i + 1)).then((r) => r.blob())
+          .then((bl) => { if (!dead.current) { blobs.current[i] = bl; setFetched((n) => n + 1); } })
           .catch(() => {});
       }
     }, { rootMargin: "1200px" });
     io.observe(el);
-    return () => { dead = true; io.disconnect(); };
+    const held = frames.current;
+    return () => { dead.current = true; io.disconnect(); held.forEach(release); held.clear(); };
   }, [box]);
+
+  // decode what's near frame f (nearest first), and give back what's far from it
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !fetched) return;
+    const w = Math.min(FILE_W, Math.round(el.clientWidth * Math.min(FRAME_DPR, window.devicePixelRatio || 1)));
+    const at = f - 1;
+    for (const [i, bm] of frames.current) {
+      if (Math.abs(i - at) > WINDOW + 2) { release(bm); frames.current.delete(i); }
+    }
+    for (let d = 0; d <= WINDOW; d++) {
+      for (const i of d ? [at + d, at - d] : [at]) {
+        const blob = blobs.current[i];
+        if (i < 0 || i >= C.frames || !blob || frames.current.has(i) || pending.current.has(i)) continue;
+        pending.current.add(i);
+        decode(blob, w)
+          .then((bm) => {
+            pending.current.delete(i);
+            if (dead.current) { release(bm); return; }
+            frames.current.set(i, bm);
+            setLoaded((n) => n + 1);
+          })
+          .catch(() => pending.current.delete(i));
+      }
+    }
+  }, [box, f, fetched]);
+
   return { frames, loaded };
 }
 
@@ -147,8 +205,8 @@ function Paths({ m, f }: { m: Moment; f: number }) {
 export function CurlStage({ m, className = "" }: { m: Moment; className?: string }) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const { frames, loaded } = useFrames(box);
   const f = Math.round(m.pos);
+  const { frames, loaded } = useFrames(box, f);
 
   useEffect(() => {
     const c = canvas.current, el = box.current;
@@ -159,8 +217,8 @@ export function CurlStage({ m, className = "" }: { m: Moment; className?: string
     if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
     const F = frames.current;
     // the frame, or until it's in, the nearest decoded one
-    let im = null;
-    for (let k = 0; k < C.frames && !im; k++) im = F[f - 1 - k] ?? F[f - 1 + k] ?? null;
+    let im: Bitmap | null = null;
+    for (let k = 0; k < C.frames && !im; k++) im = F.get(f - 1 - k) ?? F.get(f - 1 + k) ?? null;
     if (im) ctx.drawImage(im, 0, 0, W, H);
   }, [f, loaded, frames]);
 
