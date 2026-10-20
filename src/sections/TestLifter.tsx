@@ -154,6 +154,10 @@ export function TestLifter() {
                     ? "I'm happy for FormGuard to contact me about the launch."
                     : "I'm happy for FormGuard to contact me about launch and testing."}
                 </Checkbox>
+                {/* lined up with the checkbox's sentence (20px box + 12px gap) */}
+                <p className="mt-2 pl-8 text-[14px] leading-[1.45] text-[var(--ink-muted)]">
+                  Your data stays yours. We only use it to improve form checks.
+                </p>
               </div>
 
               {/* for bots only: display: none, so people never see it and browsers never autofill it */}
