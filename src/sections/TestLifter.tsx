@@ -18,7 +18,7 @@ const ORDER: (keyof Errors)[] = ["intent", "name", "email", "adelaide", "consent
  * (display: none, so browsers never autofill it, and hidden from screen readers); the API drops what it sends.
  */
 export function TestLifter() {
-  const [intent, setIntent] = useState<string[]>([]);
+  const [intent, setIntent] = useState<string[]>(["tester"]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [adelaide, setAdelaide] = useState<string[]>([]);
@@ -84,23 +84,14 @@ export function TestLifter() {
         <div className="col-span-12 lg:col-span-5">
           <Kicker index="03">Test lifters</Kicker>
           <h2 className="t-head mt-6 text-h2">Become a test lifter.</h2>
-          <p className="mt-6 max-w-[42ch] text-lead">
-            FormGuard learns from real lifters. We need people to wear the suit while they train, so it learns what a good rep and a slipping rep look like across different bodies.
+          <p className="mt-6 max-w-[40ch] text-lead">
+            Wear the suit for 2 sessions at your usual gym and help FormGuard learn what good form looks like.
           </p>
-          <a href="#signup" className="mt-6 inline-flex items-center gap-2 font-semibold underline decoration-[var(--line-strong)] underline-offset-[6px] lg:hidden">
-            Go to the sign-up form <span aria-hidden>↓</span>
-          </a>
-
-          <List title="What we'll ask of you" items={[
-            "Wear the suit for 2 sessions of 45 minutes at your usual gym, on your usual program.",
-            "Tell us what worked and what didn't, in a short chat after each session.",
+          <List title="You get" items={[
+            "First access before anyone else",
+            "Feedback on your own form",
+            "A discount when FormGuard launches",
           ]} />
-          <List title="What you get" items={[
-            "First access to FormGuard before anyone else.",
-            "Feedback on your own form from every session you test.",
-            "A founding test lifter discount when FormGuard launches.",
-          ]} />
-          <p className="mt-8 max-w-[44ch] text-[14px] text-[var(--ink-muted)]">Your data stays yours. We only use it to improve form checks.</p>
         </div>
 
         <div id="signup" className="col-span-12 scroll-mt-[calc(var(--header-h)+1rem)] lg:col-span-6 lg:col-start-7">
@@ -149,8 +140,7 @@ export function TestLifter() {
                   </div>
                   <ChipGroup legend="What do you lift?" name="lifts" value={lifts} onChange={setLifts}
                     options={LIFTS.map((l) => ({ value: l.toLowerCase(), label: l }))} />
-                  <ChipGroup legend="How often do you train?" type="radio" name="freq" value={freq} onChange={setFreq} options={[...FREQ]}
-                    columns="[&>label]:flex-[1_1_calc(50%-4px)] sm:[&>label]:flex-none" />
+                  <ChipGroup legend="How often do you train?" type="radio" name="freq" value={freq} onChange={setFreq} options={[...FREQ]} />
                   <Field label="What's your biggest worry about your form?" maxLength={300} autoComplete="off"
                     placeholder="e.g. my lower back on deadlifts" value={worry} onChange={(e) => setWorry(e.target.value)} />
                 </div>
@@ -192,15 +182,14 @@ function List({ title, items }: { title: ReactNode; items: string[] }) {
   return (
     <div className="mt-10">
       <h3 className="t-label text-[var(--ink)]">{title}</h3>
-      <ol className="mt-4 space-y-3 border-t border-[var(--line)] pt-4 text-[16px] leading-[1.5]">
-        {items.map((t, i) => (
-          <li key={i} className="flex gap-4">
-            <span className="t-mono shrink-0 pt-px text-[var(--signal-ink)]">{String(i + 1).padStart(2, "0")}</span>
+      <ul className="mt-4 space-y-3 border-t border-[var(--line)] pt-4 text-[17px] leading-[1.5]">
+        {items.map((t) => (
+          <li key={t} className="flex gap-3">
+            <span aria-hidden className="shrink-0 text-[var(--signal-ink)]">—</span>
             <span>{t}</span>
           </li>
         ))}
-      </ol>
+      </ul>
     </div>
   );
 }
-

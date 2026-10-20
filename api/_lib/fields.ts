@@ -1,7 +1,7 @@
 /** The sign-up form's answers, shared by the form (src/sections/TestLifter.tsx), the API that checks them and /admin. */
 export const INTENTS = [
-  { value: "updates", label: "Just tell me when FormGuard launches" },
   { value: "tester", label: "I want to be a test lifter (you'll get launch updates too)" },
+  { value: "updates", label: "Not ready to test? Just send me launch updates." },
 ] as const;
 export const LIFTS = ["Squat", "Deadlift", "Bench", "Overhead press", "Curls", "Other"] as const;
 export const FREQ = [
