@@ -17,10 +17,10 @@ function allowed(request: Request): Response | null {
   return got && timingSafeEqual(h(got), h(want)) ? null : json({ error: "Wrong password." }, 401);
 }
 
-const COLUMNS = ["id", "created_at", "name", "email", "lifts", "frequency"] as const;
+const COLUMNS = ["id", "created_at", "updated_at", "intent", "name", "email", "adelaide", "lifts", "frequency", "worry", "source", "consent"] as const;
 
 function csvCell(v: unknown) {
-  let s = v instanceof Date ? v.toISOString() : Array.isArray(v) ? v.join("; ") : String(v ?? "");
+  let s = typeof v === "boolean" ? (v ? "yes" : "no") : v instanceof Date ? v.toISOString() : Array.isArray(v) ? v.join("; ") : String(v ?? "");
   if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;             // a spreadsheet would run it as a formula
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
