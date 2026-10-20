@@ -80,6 +80,8 @@ export function SuitStage({ eager = false, className = "" }: { eager?: boolean; 
   return (
     <div className={className}>
       <figure ref={fig} className="relative mx-auto aspect-[2/3] max-h-[70svh] w-full max-w-[34rem]">
+        {/* absolute, so Safari sizes the canvas to this box and not to its uncapped 2:3 height */}
+        <div className="absolute inset-0">
         {webgl && near && !failed ? (
           <Fallback key={attempt} to={poster} onError={(e) => fail(e.message)}>
             <Suspense fallback={poster}>
@@ -88,6 +90,7 @@ export function SuitStage({ eager = false, className = "" }: { eager?: boolean; 
             </Suspense>
           </Fallback>
         ) : <div className="h-full">{poster}</div>}
+        </div>
       </figure>
       {webgl && !failed && (
         <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-3">
