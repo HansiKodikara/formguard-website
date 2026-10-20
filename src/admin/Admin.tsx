@@ -10,7 +10,10 @@ import { FREQ, LIFTS } from "../../api/_lib/fields";
  * newest first, with a CSV download and a way to take test entries off. Everything goes through api/waitlist.ts,
  * which checks the password on every request.
  */
-type Entry = { id: number; created_at: string; name: string; email: string; lifts: string[]; frequency: string };
+type Entry = {
+  id: number; created_at: string; intent: string; name: string; email: string; adelaide: boolean | null;
+  lifts: string[]; frequency: string; worry: string; source: string; consent: boolean;
+};
 
 const KEY = "fg-admin";
 const remembered = () => { try { return sessionStorage.getItem(KEY) ?? ""; } catch { return ""; } };
@@ -80,6 +83,7 @@ export function Admin() {
     }
   };
 
+  const testers = rows ? rows.filter((r) => r.intent === "tester").length : 0;
   const counts = rows ? LIFTS.map((l) => [l, rows.filter((r) => r.lifts.includes(l.toLowerCase())).length] as const) : [];
 
   return (
@@ -104,7 +108,7 @@ export function Admin() {
           <div className="mt-10 flex flex-wrap items-end justify-between gap-6">
             <div>
               <p className="t-num text-[56px] leading-none">{rows.length}</p>
-              <p className="t-label mt-2 text-[var(--ink-muted)]">on the waitlist</p>
+              <p className="t-label mt-2 text-[var(--ink-muted)]">signed up · {testers} test lifters, {rows.length - testers} launch updates</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Button variant="secondary" size="sm" onClick={() => load(password)} disabled={busy}>{busy ? "Refreshing…" : "Refresh"}</Button>
@@ -118,14 +122,18 @@ export function Admin() {
 
           {rows.length ? (
             <div className="mt-8 overflow-x-auto rounded-md border border-[var(--line)] bg-[var(--ground-raised)]">
-              <table className="w-full min-w-[720px] border-collapse text-left text-[15px]">
+              <table className="w-full min-w-[1100px] border-collapse text-left text-[15px]">
                 <thead>
                   <tr className="t-label border-b border-[var(--line)] text-[var(--ink-muted)]">
                     <th scope="col" className="px-4 py-3 font-semibold">Joined</th>
+                    <th scope="col" className="px-4 py-3 font-semibold">Wants</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Name</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Email</th>
+                    <th scope="col" className="px-4 py-3 font-semibold">Adelaide</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Lifts</th>
                     <th scope="col" className="px-4 py-3 font-semibold">Training</th>
+                    <th scope="col" className="px-4 py-3 font-semibold">Form worry</th>
+                    <th scope="col" className="px-4 py-3 font-semibold">Heard via</th>
                     <th scope="col" className="px-4 py-3"><span className="sr-only">Remove</span></th>
                   </tr>
                 </thead>
@@ -133,10 +141,14 @@ export function Admin() {
                   {rows.map((r) => (
                     <tr key={r.id} className="border-b border-[var(--line)] last:border-0">
                       <td className="t-mono whitespace-nowrap px-4 py-3 text-[13px] text-[var(--ink-muted)]">{when(r.created_at)}</td>
+                      <td className="whitespace-nowrap px-4 py-3">{r.intent === "tester" ? "Test lifter" : "Launch updates"}</td>
                       <td className="px-4 py-3">{r.name || <span className="text-[var(--ink-muted)]">—</span>}</td>
                       <td className="px-4 py-3"><a href={`mailto:${r.email}`} className="underline decoration-[var(--line-strong)] underline-offset-4 hover:decoration-[var(--ink)]">{r.email}</a></td>
-                      <td className="px-4 py-3">{r.lifts.map(liftName).join(", ")}</td>
+                      <td className="px-4 py-3">{r.adelaide === null ? "—" : r.adelaide ? "Yes" : "No"}</td>
+                      <td className="px-4 py-3">{r.lifts.map(liftName).join(", ") || "—"}</td>
                       <td className="whitespace-nowrap px-4 py-3">{freqName(r.frequency)}</td>
+                      <td className="max-w-[18rem] px-4 py-3">{r.worry || "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-3">{r.source || "—"}</td>
                       <td className="px-4 py-3 text-right">
                         <button type="button" onClick={() => remove(r)} className="text-[14px] text-[var(--ink-muted)] underline-offset-4 hover:text-[var(--signal-ink)] hover:underline">Remove</button>
                       </td>

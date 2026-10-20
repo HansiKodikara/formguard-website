@@ -21,6 +21,14 @@ const SCHEMA = `create table if not exists waitlist (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 )`;
+// added with the launch-updates / test-lifter split; safe to run on every cold start
+const MIGRATIONS = [
+  `alter table waitlist add column if not exists intent text not null default 'tester'`,
+  `alter table waitlist add column if not exists adelaide boolean`,
+  `alter table waitlist add column if not exists worry text not null default ''`,
+  `alter table waitlist add column if not exists source text not null default ''`,
+  `alter table waitlist add column if not exists consent boolean not null default false`,
+];
 
 function connect(): Query {
   if (globalThis.__fgQuery) return globalThis.__fgQuery;
@@ -34,7 +42,7 @@ let ready: Promise<void> | null = null;
 
 export async function db(): Promise<Query> {
   const q = connect();
-  ready ??= q(SCHEMA).then(() => undefined, (e) => { ready = null; throw e; });
+  ready ??= q(SCHEMA).then(async () => { for (const m of MIGRATIONS) await q(m); }).then(() => undefined, (e) => { ready = null; throw e; });
   await ready;
   return q;
 }

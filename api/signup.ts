@@ -1,14 +1,18 @@
 import { db, json } from "./_lib/db.js";
-import { EMAIL, FREQ, LIFTS } from "./_lib/fields.js";
+import { EMAIL, FREQ, INTENTS, LIFTS, SOURCES } from "./_lib/fields.js";
 
 /**
- * POST /api/signup: join the waitlist. Takes the form's JSON ({ name, email, lifts, frequency }), checks it again
- * here (the page's own checks can be skipped), and saves it. Signing up again with the same email updates the
- * answers rather than adding a second row. `fg_trap` is a field people never see (and browsers never autofill):
- * if it's filled in, a bot sent it, and it's dropped (logged, so a dropped sign-up is never a mystery).
+ * POST /api/signup: launch updates or a test-lifter sign-up. Takes the form's JSON ({ intent, name, email, consent,
+ * source, and for test lifters adelaide, lifts, frequency, worry }), checks it again here (the page's own checks can
+ * be skipped), and saves it with a timestamp. Signing up again with the same email updates the answers rather than
+ * adding a second row. `fg_trap` is a field people never see (and browsers never autofill): if it's filled in, a bot
+ * sent it, and it's dropped (logged, so a dropped sign-up is never a mystery).
  */
 const LIFT_VALUES = new Set<string>(LIFTS.map((l) => l.toLowerCase()));
 const FREQ_VALUES = new Set<string>(FREQ.map((f) => f.value));
+const INTENT_VALUES = new Set<string>(INTENTS.map((i) => i.value));
+const SOURCE_VALUES = new Set<string>(SOURCES);
+const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -24,19 +28,30 @@ export async function POST(request: Request) {
     return json({ ok: true });
   }
 
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
-  const lifts = Array.isArray(body.lifts) ? [...new Set(body.lifts.filter((l): l is string => typeof l === "string" && LIFT_VALUES.has(l)))] : [];
-  const frequency = typeof body.frequency === "string" && FREQ_VALUES.has(body.frequency) ? body.frequency : "";
-  if (!EMAIL.test(email) || email.length > 254) return json({ error: "Enter a full email address." }, 400);
-  if (!lifts.length) return json({ error: "Pick at least one lift you train." }, 400);
+  const intent = typeof body.intent === "string" && INTENT_VALUES.has(body.intent) ? body.intent : "";
+  const email = text(body.email, 254).toLowerCase();
+  const name = text(body.name, 100);
+  const source = typeof body.source === "string" && SOURCE_VALUES.has(body.source) ? body.source : "";
+  const tester = intent === "tester";
+  const adelaide = tester && typeof body.adelaide === "boolean" ? body.adelaide : null;
+  const lifts = tester && Array.isArray(body.lifts) ? [...new Set(body.lifts.filter((l): l is string => typeof l === "string" && LIFT_VALUES.has(l)))] : [];
+  const frequency = tester && typeof body.frequency === "string" && FREQ_VALUES.has(body.frequency) ? body.frequency : "";
+  const worry = tester ? text(body.worry, 300) : "";
+  if (!intent) return json({ error: "Choose launch updates or test lifter." }, 400);
+  if (!name) return json({ error: "Enter your name." }, 400);
+  if (!EMAIL.test(email)) return json({ error: "Enter a full email address." }, 400);
+  if (tester && adelaide === null) return json({ error: "Tell us if you're in Adelaide." }, 400);
+  if (body.consent !== true) return json({ error: "Tick the box so we can contact you." }, 400);
 
   try {
     const q = await db();
     await q(
-      `insert into waitlist (email, name, lifts, frequency) values ($1, $2, $3, $4)
-       on conflict (email) do update set name = excluded.name, lifts = excluded.lifts, frequency = excluded.frequency, updated_at = now()`,
-      [email, name, lifts, frequency],
+      `insert into waitlist (email, name, intent, adelaide, lifts, frequency, worry, source, consent)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, true)
+       on conflict (email) do update set name = excluded.name, intent = excluded.intent, adelaide = excluded.adelaide,
+         lifts = excluded.lifts, frequency = excluded.frequency, worry = excluded.worry,
+         source = coalesce(nullif(excluded.source, ''), waitlist.source), consent = true, updated_at = now()`,
+      [email, name, intent, adelaide, lifts, frequency, worry, source],
     );
     return json({ ok: true });
   } catch (e) {
