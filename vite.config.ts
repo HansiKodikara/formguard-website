@@ -2,7 +2,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -11,6 +11,42 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * the waitlist works without the Vercel CLI. With no DATABASE_URL in .env.local it uses PGlite, a real Postgres
  * inside Node, kept in .data/.
  */
+type Rows = Record<string, unknown>[];
+type DevGlobals = { __fgQuery?: (t: string, p?: unknown[]) => Promise<Rows>; __fgDb?: Promise<void> };
+
+/**
+ * The local stand-in for the production database: PGlite (Postgres in Node), saved in .data/waitlist. Only one
+ * process may open that folder, so a lock file records which dev server has it. A second dev server (or one that
+ * can't open it) gets a temporary in-memory database instead, and says so in the terminal, rather than crashing.
+ */
+async function openDevDb(g: DevGlobals, log: { warn: (m: string) => void }) {
+  const { PGlite } = await import("@electric-sql/pglite");
+  const memory = async (why: string) => {
+    log.warn(`[dev api] ${why} Using a temporary in-memory database: form posts on this server won't be kept.`);
+    const pg = await PGlite.create();
+    g.__fgQuery = async (t, p) => (await pg.query<Record<string, unknown>>(t, p)).rows;
+  };
+  mkdirSync(r(".data"), { recursive: true });
+  const lock = r(".data/waitlist.lock");
+  const holder = existsSync(lock) ? Number(readFileSync(lock, "utf8")) : 0;
+  if (holder && holder !== process.pid && alive(holder)) return memory(`Another dev server (pid ${holder}) has .data/waitlist open.`);
+  writeFileSync(lock, String(process.pid));
+  const release = () => { try { if (Number(readFileSync(lock, "utf8")) === process.pid) unlinkSync(lock); } catch { /* gone */ } };
+  process.once("exit", release);
+  for (const sig of ["SIGINT", "SIGTERM"] as const) process.once(sig, () => { release(); process.exit(0); });
+  try {
+    const pg = await PGlite.create(r(".data/waitlist"));
+    g.__fgQuery = async (t, p) => (await pg.query<Record<string, unknown>>(t, p)).rows;
+  } catch (e) {
+    release();
+    await memory(`Couldn't open .data/waitlist (${(e as Error).message}).`);
+  }
+}
+
+function alive(pid: number) {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
 function devApi(): Plugin {
   return {
     name: "fg-dev-api",
@@ -24,12 +60,11 @@ function devApi(): Plugin {
         if (!route) return next();
         try {
           for (const [k, v] of Object.entries(loadEnv(server.config.mode, process.cwd(), ""))) process.env[k] ??= v;
-          const g = globalThis as { __fgQuery?: (t: string, p?: unknown[]) => Promise<Record<string, unknown>[]> };
+          const g = globalThis as DevGlobals;
           if (!process.env.DATABASE_URL && !g.__fgQuery) {
-            const { PGlite } = await import("@electric-sql/pglite");
-            mkdirSync(r(".data"), { recursive: true });
-            const pg = await PGlite.create(r(".data/waitlist"));   // awaited, so a failure is this request's error, not a crash
-            g.__fgQuery = async (t, p) => (await pg.query<Record<string, unknown>>(t, p)).rows;
+            // one open per server, however many requests arrive at once (two opens of one folder abort PGlite)
+            g.__fgDb ??= openDevDb(g, server.config.logger).catch((e) => { g.__fgDb = undefined; throw e; });
+            await g.__fgDb;
           }
           const mod = await server.ssrLoadModule(`/api/${route[1]}.ts`);
           const method = req.method ?? "GET";
@@ -44,7 +79,13 @@ function devApi(): Plugin {
           out.headers.forEach((v, k) => res.setHeader(k, v));
           res.end(Buffer.from(await out.arrayBuffer()));
         } catch (e) {
-          next(e);
+          // answer the form, don't hand it to Vite: its error page would cover the whole site
+          server.config.logger.error(`[dev api] ${url.pathname}: ${(e as Error).stack ?? e}`);
+          if (!res.headersSent) {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json");
+            res.end(JSON.stringify({ error: "The local dev database had a problem. See the terminal." }));
+          }
         }
       });
     },

@@ -4,6 +4,7 @@ import { Hero } from "./sections/Hero";
 import { WhyUs } from "./sections/WhyUs";
 import { HowItWorks } from "./sections/HowItWorks";
 import { TestLifter } from "./sections/TestLifter";
+import { Contact } from "./sections/Contact";
 import { useCaps } from "./lib/env";
 import { useHashLanding } from "./lib/hash";
 
@@ -19,6 +20,7 @@ export function App() {
         <WhyUs />
         <HowItWorks caps={caps} />
         <TestLifter />
+        <Contact />
       </main>
       <Footer />
     </>

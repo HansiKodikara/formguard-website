@@ -12,3 +12,5 @@ export const FREQ = [
 ] as const;
 export const SOURCES = ["Venture Showcase", "LinkedIn", "Friend", "Other"] as const;
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const ROLES = ["Lifter", "Investor", "Mentor or industry", "Other"] as const;
+export const MESSAGE_MAX = 4000;

@@ -15,6 +15,8 @@ type Entry = {
   lifts: string[]; frequency: string; worry: string; source: string; consent: boolean;
 };
 
+type Message = { id: number; created_at: string; role: string; email: string; message: string };
+
 const KEY = "fg-admin";
 const remembered = () => { try { return sessionStorage.getItem(KEY) ?? ""; } catch { return ""; } };
 const remember = (p: string) => { try { if (p) sessionStorage.setItem(KEY, p); else sessionStorage.removeItem(KEY); } catch { /* private mode */ } };
@@ -36,14 +38,17 @@ export function Admin() {
   const [password, setPassword] = useState(remembered);
   const [typed, setTyped] = useState("");
   const [rows, setRows] = useState<Entry[] | null>(null);
+  const [msgs, setMsgs] = useState<Message[]>([]);
+  const [view, setView] = useState<"signups" | "messages">("signups");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async (pw: string) => {
     setBusy(true); setError("");
     try {
-      const r = await call("/api/waitlist", pw);
-      setRows(((await r.json()) as { rows: Entry[] }).rows);
+      const [w, m] = await Promise.all([call("/api/waitlist", pw), call("/api/messages", pw)]);
+      setRows(((await w.json()) as { rows: Entry[] }).rows);
+      setMsgs(((await m.json()) as { rows: Message[] }).rows);
       setPassword(pw); remember(pw);
     } catch (e) {
       const err = e as Error & { status?: number };
@@ -59,11 +64,11 @@ export function Admin() {
   const signIn = (e: FormEvent) => { e.preventDefault(); if (typed) load(typed); };
   const signOut = () => { setPassword(""); remember(""); setRows(null); setTyped(""); };
 
-  const download = async () => {
+  const download = async (what: "waitlist" | "messages" = "waitlist") => {
     setError("");
     try {
-      const r = await call("/api/waitlist?format=csv", password);
-      const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") ?? "")?.[1] ?? "formguard-waitlist.csv";
+      const r = await call(`/api/${what}?format=csv`, password);
+      const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") ?? "")?.[1] ?? `formguard-${what}.csv`;
       const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(await r.blob()), download: name });
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -83,6 +88,17 @@ export function Admin() {
     }
   };
 
+  const removeMessage = async (m: Message) => {
+    if (!confirm(`Delete the message from ${m.email || "an anonymous sender"}?`)) return;
+    setError("");
+    try {
+      await call(`/api/messages?id=${m.id}`, password, { method: "DELETE" });
+      setMsgs((ms) => ms.filter((x) => x.id !== m.id));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const testers = rows ? rows.filter((r) => r.intent === "tester").length : 0;
   const counts = rows ? LIFTS.map((l) => [l, rows.filter((r) => r.lifts.includes(l.toLowerCase())).length] as const) : [];
 
@@ -91,7 +107,7 @@ export function Admin() {
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-6">
         <div className="flex items-center gap-4">
           <Logo height={24} />
-          <span className="t-label text-[var(--ink-muted)]">Waitlist</span>
+          <span className="t-label text-[var(--ink-muted)]">Admin</span>
         </div>
         {rows && <Button variant="quiet" size="sm" onClick={signOut}>Sign out</Button>}
       </header>
@@ -101,10 +117,21 @@ export function Admin() {
           <h1 className="t-head text-h3">Admin</h1>
           <Field label="Password" type="password" autoComplete="current-password" autoFocus value={typed}
             onChange={(e) => setTyped(e.target.value)} error={error || undefined} />
-          <Button type="submit" disabled={busy || !typed}>{busy ? "Opening…" : "Open the waitlist"}</Button>
+          <Button type="submit" disabled={busy || !typed}>{busy ? "Opening…" : "Open"}</Button>
         </form>
       ) : (
         <>
+          <div role="tablist" aria-label="What to show" className="mt-8 flex gap-2">
+            {([["signups", `Sign-ups · ${rows.length}`], ["messages", `Messages · ${msgs.length}`]] as const).map(([v, l]) => (
+              <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}
+                className={`h-10 rounded-md border px-4 text-[15px] font-semibold transition-colors ${view === v ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--ground)]" : "border-[var(--line-strong)] text-[var(--ink-muted)] hover:text-[var(--ink)]"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+          {view === "messages" ? (
+            <Messages rows={msgs} busy={busy} error={error} onRefresh={() => load(password)} onDownload={() => download("messages")} onRemove={removeMessage} />
+          ) : (<>
           <div className="mt-10 flex flex-wrap items-end justify-between gap-6">
             <div>
               <p className="t-num text-[56px] leading-none">{rows.length}</p>
@@ -112,7 +139,7 @@ export function Admin() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Button variant="secondary" size="sm" onClick={() => load(password)} disabled={busy}>{busy ? "Refreshing…" : "Refresh"}</Button>
-              <Button size="sm" onClick={download} disabled={!rows.length}>Download CSV</Button>
+              <Button size="sm" onClick={() => download("waitlist")} disabled={!rows.length}>Download CSV</Button>
             </div>
           </div>
           {rows.length > 0 && (
@@ -160,8 +187,52 @@ export function Admin() {
           ) : (
             <p className="mt-10 text-[var(--ink-muted)]">Nobody yet. Sign-ups from the site's form show up here.</p>
           )}
+          </>)}
         </>
       )}
     </main>
+  );
+}
+
+/** "Get in touch" messages: newest first, each with who they are, when, and a reply link. */
+function Messages({ rows, busy, error, onRefresh, onDownload, onRemove }: {
+  rows: Message[]; busy: boolean; error: string; onRefresh: () => void; onDownload: () => void; onRemove: (m: Message) => void;
+}) {
+  return (
+    <>
+      <div className="mt-10 flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <p className="t-num text-[56px] leading-none">{rows.length}</p>
+          <p className="t-label mt-2 text-[var(--ink-muted)]">messages from Get in touch</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="secondary" size="sm" onClick={onRefresh} disabled={busy}>{busy ? "Refreshing…" : "Refresh"}</Button>
+          <Button size="sm" onClick={onDownload} disabled={!rows.length}>Download CSV</Button>
+        </div>
+      </div>
+      {error && <div className="mt-6"><Flag tone="fault">{error}</Flag></div>}
+      {rows.length ? (
+        <ul className="mt-8 space-y-3">
+          {rows.map((m) => (
+            <li key={m.id} className="rounded-md border border-[var(--line)] bg-[var(--ground-raised)] p-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+                <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="t-label">{m.role}</span>
+                  {m.email ? (
+                    <a href={`mailto:${m.email}?subject=${encodeURIComponent("Re: your message to FormGuard")}`}
+                      className="underline decoration-[var(--line-strong)] underline-offset-4 hover:decoration-[var(--ink)]">{m.email}</a>
+                  ) : <span className="text-[var(--ink-muted)]">Anonymous</span>}
+                </p>
+                <span className="t-mono text-[13px] text-[var(--ink-muted)]">{when(m.created_at)}</span>
+              </div>
+              <p className="mt-3 whitespace-pre-wrap break-words text-[16px] leading-[1.5]">{m.message}</p>
+              <button type="button" onClick={() => onRemove(m)} className="mt-3 text-[14px] text-[var(--ink-muted)] underline-offset-4 hover:text-[var(--signal-ink)] hover:underline">Delete</button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-10 text-[var(--ink-muted)]">No messages yet. Messages from the site's Get in touch form show up here.</p>
+      )}
+    </>
   );
 }

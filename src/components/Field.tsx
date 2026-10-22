@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Icon } from "./Icon";
 
 /** A required field's mark: a red asterisk people can see, "required" for screen readers (the input says so too). */
@@ -136,6 +136,31 @@ export function Checkbox({ children, checked, onChange, error, required = false 
         <span>{children}{required && <Req />}</span>
       </label>
       {error && <FieldError id={`${id}-err`}>{error}</FieldError>}
+    </div>
+  );
+}
+
+export function Textarea({ label, error, hint, className = "", ...area }: {
+  label: string; error?: string; hint?: string; className?: string;
+} & TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const id = useId();
+  const msg = error ? `${id}-err` : hint ? `${id}-hint` : undefined;
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="t-label mb-2 block text-[var(--ink)]">{label}{area.required && <Req />}</label>
+      <textarea
+        id={id}
+        rows={4}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={msg}
+        className={
+          "block min-h-28 w-full resize-y rounded-md border bg-[var(--ground-raised)] px-4 py-3 font-display text-[16px] leading-[1.5] text-[var(--ink)] " +
+          "placeholder:text-[var(--ink-muted)] transition-colors duration-200 hover:border-[var(--ink)] focus:border-[var(--ink)] " +
+          (error ? "border-[var(--signal-ink)]" : "border-[var(--line-strong)]")
+        }
+        {...area}
+      />
+      {error ? <FieldError id={msg!}>{error}</FieldError> : hint ? <p id={msg} className="mt-2 text-[14px] text-[var(--ink-muted)]">{hint}</p> : null}
     </div>
   );
 }

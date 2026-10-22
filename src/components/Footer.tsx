@@ -16,7 +16,7 @@ export function Footer() {
         <div className="col-span-6 lg:col-span-3">
           <p className="t-label text-[var(--ink-muted)]">On this page</p>
           <ul className="mt-3 space-y-2">
-            {[["#why", "Why us"], ["#how", "How it works"], ["#test-lifter", "Become a test lifter"]].map(([h, l]) => (
+            {[["#why", "Why us"], ["#how", "How it works"], ["#test-lifter", "Become a test lifter"], ["#contact", "Feedback"]].map(([h, l]) => (
               <li key={h}><a href={h} className="hover:underline">{l}</a></li>
             ))}
           </ul>

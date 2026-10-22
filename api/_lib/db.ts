@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 
 /**
- * The waitlist table, on the Postgres in DATABASE_URL (Neon, added from Vercel's Storage tab). The table is
+ * The waitlist and messages tables, on the Postgres in DATABASE_URL (Neon, added from Vercel's Storage tab). The table is
  * created on first use, so there's no setup step. In local dev, vite.config.ts hands in a PGlite database instead
  * (globalThis.__fgQuery), saved in .data/.
  */
@@ -28,6 +28,14 @@ const MIGRATIONS = [
   `alter table waitlist add column if not exists worry text not null default ''`,
   `alter table waitlist add column if not exists source text not null default ''`,
   `alter table waitlist add column if not exists consent boolean not null default false`,
+  // "Get in touch" messages: kept apart from the waitlist, and never added to it
+  `create table if not exists messages (
+    id bigint generated always as identity primary key,
+    role text not null,
+    message text not null,
+    email text not null,
+    created_at timestamptz not null default now()
+  )`,
 ];
 
 function connect(): Query {
